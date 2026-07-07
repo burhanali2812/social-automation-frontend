@@ -37,7 +37,7 @@ function Sidebar({ children }) {
         icon: "fa-share-nodes",
         children: [
           { title: "Connected Accounts", href: "/social-accounts" },
-          { title: "Connect Account", href: "/social-accounts/connect" },
+          { title: "Connect Account", href: "/social-accounts" },
         ],
       },
       {

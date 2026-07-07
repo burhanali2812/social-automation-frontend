@@ -24,6 +24,7 @@ const TYPE_ICONS = {
 const initialState = {
   companyName: "", companyLogo: "", companyDescription: "", companyType: "",
   website: "", email: "", phone: "", address: "",
+  facebook: "", instagram: "", linkedin: "", youtube: "",
   defaultGeminiPrompt: "", timezone: "Asia/Karachi", postingTime: "09:00",
 };
 
@@ -44,10 +45,10 @@ const FieldError = ({ msg }) =>
     </p>
   ) : null;
 
-const InputWrap = ({ icon, children }) => (
+const InputWrap = ({ icon, iconPrefix = "fas", children }) => (
   <div className="relative">
     <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-gray-400">
-      <i className={`fas ${icon} w-3.5 text-center text-xs`}></i>
+      <i className={`${iconPrefix} ${icon} w-3.5 text-center text-xs`}></i>
     </span>
     {children}
   </div>
@@ -60,7 +61,8 @@ function Add_Company() {
   const [form, setForm]             = useState(initialState);
   const [errors, setErrors]         = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [step, setStep]             = useState(0); // 0=basic 1=contact 2=automation
+  const [step, setStep]             = useState(0); // 0=basic 1=contact 2=social 3=automation
+  const [maxStepReached, setMaxStepReached] = useState(0); // furthest step the user has validated into
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -103,6 +105,14 @@ function Add_Company() {
       else if (f.address.trim().length < 5) e.address = "Too short";
       else if (f.address.trim().length > 300) e.address = "Max 300 characters";
     }
+    if (has("facebook") && f.facebook && !/^https?:\/\/(www\.)?facebook\.com\/.+/i.test(f.facebook.trim()))
+      e.facebook = "Must be a valid facebook.com URL";
+    if (has("instagram") && f.instagram && !/^https?:\/\/(www\.)?instagram\.com\/.+/i.test(f.instagram.trim()))
+      e.instagram = "Must be a valid instagram.com URL";
+    if (has("linkedin") && f.linkedin && !/^https?:\/\/(www\.)?linkedin\.com\/.+/i.test(f.linkedin.trim()))
+      e.linkedin = "Must be a valid linkedin.com URL";
+    if (has("youtube") && f.youtube && !/^https?:\/\/(www\.)?youtube\.com\/.+/i.test(f.youtube.trim()))
+      e.youtube = "Must be a valid youtube.com URL";
     if (has("defaultGeminiPrompt")) {
       if (!f.defaultGeminiPrompt.trim()) e.defaultGeminiPrompt = "Prompt is required";
       else if (f.defaultGeminiPrompt.trim().length < 20) e.defaultGeminiPrompt = "Min 20 characters";
@@ -114,19 +124,30 @@ function Add_Company() {
   };
 
   const STEPS = [
-    { label: "Basic Info",    icon: "fa-building",      fields: ["companyName","companyType","companyLogo","companyDescription"] },
-    { label: "Contact",       icon: "fa-address-card",  fields: ["email","phone","website","address"] },
-    { label: "Automation",    icon: "fa-robot",         fields: ["defaultGeminiPrompt"] },
+    { label: "Basic Info",  icon: "fa-building",     fields: ["companyName","companyType","companyLogo","companyDescription"] },
+    { label: "Contact",     icon: "fa-address-card", fields: ["email","phone","website","address"] },
+    { label: "Social Links",icon: "fa-share-nodes",  fields: ["facebook","instagram","linkedin","youtube"] },
+    { label: "Automation",  icon: "fa-robot",        fields: ["defaultGeminiPrompt"] },
   ];
 
   const goNext = () => {
     const ok = validate(STEPS[step].fields);
     if (!ok) { toast.error("Fix the errors in this section first."); return; }
-    setStep((s) => Math.min(s + 1, 2));
+    const next = Math.min(step + 1, STEPS.length - 1);
+    setStep(next);
+    setMaxStepReached((m) => Math.max(m, next));
   };
   const goPrev = () => setStep((s) => Math.max(s - 1, 0));
 
-  const handleReset = () => { setForm(initialState); setErrors({}); setStep(0); };
+  // Jump directly to any step already visited — lets the user backtrack
+  // (e.g. from Step 4 to recheck Step 2) without losing validated progress,
+  // and hop forward again without redoing validation.
+  const jumpToStep = (i) => {
+    if (i > maxStepReached) return; // can't skip ahead to a step not yet unlocked
+    setStep(i);
+  };
+
+  const handleReset = () => { setForm(initialState); setErrors({}); setStep(0); setMaxStepReached(0); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -135,7 +156,15 @@ function Add_Company() {
     const tid = toast.loading("Creating company…");
     try {
       const res = await api.post("/company",
-        { ...form, companyLogo: form.companyLogo.trim() || null, website: form.website.trim() || null },
+        {
+          ...form,
+          companyLogo: form.companyLogo.trim() || null,
+          website: form.website.trim() || null,
+          facebook: form.facebook.trim() || null,
+          instagram: form.instagram.trim() || null,
+          linkedin: form.linkedin.trim() || null,
+          youtube: form.youtube.trim() || null,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success(res.data?.message || "Company created!", { id: tid });
@@ -158,6 +187,8 @@ function Add_Company() {
       {val}/{max}
     </span>
   );
+
+  const lastStep = STEPS.length - 1;
 
   return (
     <Sidebar>
@@ -200,31 +231,48 @@ function Add_Company() {
       </div>
 
       {/* ── Step Indicator ──────────────────────── */}
-      <div className="mb-6 flex items-center gap-0">
-        {STEPS.map((s, i) => (
-          <React.Fragment key={s.label}>
-            <button
-              type="button"
-              onClick={() => i < step && setStep(i)}
-              className={`flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all
-                ${i === step
-                  ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
-                  : i < step
-                    ? "cursor-pointer text-blue-600 hover:bg-blue-50"
-                    : "cursor-default text-gray-400"}`}
-            >
-              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold
-                ${i === step ? "bg-white/25 text-white" : i < step ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-400"}`}>
-                {i < step ? <i className="fas fa-check text-[10px]"></i> : i + 1}
-              </span>
-              <span className="hidden sm:block">{s.label}</span>
-            </button>
-            {i < STEPS.length - 1 && (
-              <div className={`h-px flex-1 mx-2 transition-colors ${i < step ? "bg-blue-300" : "bg-gray-200"}`} />
-            )}
-          </React.Fragment>
-        ))}
+      {/* Any step already visited (i <= maxStepReached) can be clicked to jump
+          straight to it — this is what lets you backtrack from a later step
+          to recheck/edit an earlier one, then hop forward again freely. */}
+      <div className="mb-2 flex items-center gap-0">
+        {STEPS.map((s, i) => {
+          const isCurrent  = i === step;
+          const isVisited  = i <= maxStepReached && !isCurrent;
+          const isLocked   = i > maxStepReached;
+          return (
+            <React.Fragment key={s.label}>
+              <button
+                type="button"
+                onClick={() => jumpToStep(i)}
+                disabled={isLocked}
+                title={isVisited ? `Back to ${s.label}` : undefined}
+                className={`group flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all
+                  ${isCurrent
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
+                    : isVisited
+                      ? "cursor-pointer text-blue-600 hover:bg-blue-50"
+                      : "cursor-not-allowed text-gray-400"}`}
+              >
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold
+                  ${isCurrent ? "bg-white/25 text-white" : isVisited ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-400"}`}>
+                  {isVisited ? <i className="fas fa-check text-[10px]"></i> : i + 1}
+                </span>
+                <span className="hidden sm:block">{s.label}</span>
+                {isVisited && (
+                  <i className="fas fa-pen text-[9px] text-blue-400 opacity-0 transition-opacity group-hover:opacity-100 hidden sm:inline-block"></i>
+                )}
+              </button>
+              {i < STEPS.length - 1 && (
+                <div className={`h-px flex-1 mx-2 transition-colors ${i < maxStepReached ? "bg-blue-300" : "bg-gray-200"}`} />
+              )}
+            </React.Fragment>
+          );
+        })}
       </div>
+      <p className="mb-6 text-xs text-gray-400">
+        <i className="fas fa-circle-info mr-1"></i>
+        You can click any completed step above to go back and recheck it.
+      </p>
 
       <form onSubmit={handleSubmit} noValidate>
 
@@ -386,8 +434,83 @@ function Add_Company() {
           </div>
         )}
 
-        {/* ══ STEP 2 — Automation Settings ════════ */}
+        {/* ══ STEP 2 — Social Media Links ═════════ */}
         {step === 2 && (
+          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="border-b border-gray-100 px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50">
+                  <i className="fas fa-share-nodes text-sm text-pink-600"></i>
+                </div>
+                <div>
+                  <h2 className="font-semibold text-gray-900">Social Media Links</h2>
+                  <p className="text-xs text-gray-400">Optional — link the company's social profiles</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+                <div>
+                  <Label htmlFor="facebook" hint="Optional — full facebook.com profile/page URL">
+                    Facebook
+                  </Label>
+                  <InputWrap icon="fa-facebook" iconPrefix="fab">
+                    <input id="facebook" name="facebook" type="text"
+                      value={form.facebook} onChange={handleChange}
+                      placeholder="https://facebook.com/yourcompany"
+                      className={cx("facebook")} />
+                  </InputWrap>
+                  <FieldError msg={errors.facebook} />
+                </div>
+
+                <div>
+                  <Label htmlFor="instagram" hint="Optional — full instagram.com profile URL">
+                    Instagram
+                  </Label>
+                  <InputWrap icon="fa-instagram" iconPrefix="fab">
+                    <input id="instagram" name="instagram" type="text"
+                      value={form.instagram} onChange={handleChange}
+                      placeholder="https://instagram.com/yourcompany"
+                      className={cx("instagram")} />
+                  </InputWrap>
+                  <FieldError msg={errors.instagram} />
+                </div>
+
+                <div>
+                  <Label htmlFor="linkedin" hint="Optional — full linkedin.com company URL">
+                    LinkedIn
+                  </Label>
+                  <InputWrap icon="fa-linkedin" iconPrefix="fab">
+                    <input id="linkedin" name="linkedin" type="text"
+                      value={form.linkedin} onChange={handleChange}
+                      placeholder="https://linkedin.com/company/yourcompany"
+                      className={cx("linkedin")} />
+                  </InputWrap>
+                  <FieldError msg={errors.linkedin} />
+                </div>
+
+                <div>
+                  <Label htmlFor="youtube" hint="Optional — full youtube.com channel URL">
+                    YouTube
+                  </Label>
+                  <InputWrap icon="fa-youtube" iconPrefix="fab">
+                    <input id="youtube" name="youtube" type="text"
+                      value={form.youtube} onChange={handleChange}
+                      placeholder="https://youtube.com/@yourcompany"
+                      className={cx("youtube")} />
+                  </InputWrap>
+                  <FieldError msg={errors.youtube} />
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ STEP 3 — Automation Settings ════════ */}
+        {step === 3 && (
           <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
             <div className="border-b border-gray-100 px-6 py-5">
               <div className="flex items-center gap-3">
@@ -464,26 +587,48 @@ function Add_Company() {
         {/* ── Navigation Bar ───────────────────── */}
         <div className="mt-5 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-6 py-4 shadow-sm">
           <div className="flex items-center gap-2 text-xs text-gray-400">
-            {step < 2
-              ? <><span className="font-semibold text-gray-500">Step {step + 1}</span> of 3 — {STEPS[step].label}</>
+            {step < lastStep
+              ? <><span className="font-semibold text-gray-500">Step {step + 1}</span> of {STEPS.length} — {STEPS[step].label}</>
               : <><span className="text-rose-500">*</span> All required fields must be filled</>
             }
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
             {step === 0 ? (
               <button type="button" onClick={handleReset}
                 className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition-all hover:bg-gray-50">
                 <i className="fas fa-rotate-left text-xs"></i>Reset
               </button>
             ) : (
-              <button type="button" onClick={goPrev}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition-all hover:bg-gray-50">
-                <i className="fas fa-arrow-left text-xs"></i>Back
-              </button>
+              <>
+                <button type="button" onClick={goPrev}
+                  className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition-all hover:bg-gray-50">
+                  <i className="fas fa-arrow-left text-xs"></i>Back
+                </button>
+
+                {/* Quick-jump to any earlier visited step */}
+                {maxStepReached > 0 && (
+                  <div className="relative">
+                    <select
+                      value=""
+                      onChange={(e) => e.target.value !== "" && jumpToStep(Number(e.target.value))}
+                      className="cursor-pointer appearance-none rounded-xl border border-gray-200 bg-white py-2.5 pl-3.5 pr-8 text-xs font-semibold text-gray-500 outline-none transition-all hover:bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      title="Jump to a completed step"
+                    >
+                      <option value="" disabled>Jump to step…</option>
+                      {STEPS.map((s, i) => (
+                        i !== step && i <= maxStepReached
+                          ? <option key={s.label} value={i}>{s.label}</option>
+                          : null
+                      ))}
+                    </select>
+                    <i className="fas fa-chevron-down pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[9px] text-gray-400"></i>
+                  </div>
+                )}
+              </>
             )}
 
-            {step < 2 ? (
+            {step < lastStep ? (
               <button type="button" onClick={goNext}
                 className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-200 transition-all hover:bg-blue-700">
                 Continue<i className="fas fa-arrow-right text-xs"></i>
