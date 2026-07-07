@@ -68,6 +68,13 @@ function Sidebar({ children }) {
         ],
       },
       {
+        title: "Upload & Post Testing",
+        icon: "fa-calendar-check",
+        children: [
+          { title: "Upload & Post Testing", href: "/testing-upload" },
+        ],
+      },
+      {
         title: "Logs & Reports",
         icon: "fa-file-lines",
         children: [

@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Add_Company from './pages/Add_Company';
 import Companies from './pages/Companies';
 import SocialMediaConnection from './pages/SocialMediaConnection';
+import TestingUpload from './pages/TestingUpload';
 function App() {
   return (
     <Routes>
@@ -14,6 +15,7 @@ function App() {
     <Route path="/companies/add" element={<Add_Company />} />
     <Route path="/companies" element={<Companies />} />
     <Route path="/social-accounts" element={<SocialMediaConnection />} />
+    <Route path="/testing-upload" element={<TestingUpload />} />
 
     </Routes>
   );
