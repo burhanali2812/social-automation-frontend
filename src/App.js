@@ -6,7 +6,9 @@ import Dashboard from './pages/Dashboard';
 import Add_Company from './pages/Add_Company';
 import Companies from './pages/Companies';
 import SocialMediaConnection from './pages/SocialMediaConnection';
-import TestingUpload from './pages/TestingUpload';
+import UploadMedia from './pages/UploadMedia';
+import ShowAllMedia from './pages/ShowAllMedia';
+import ManualPosting from './pages/ManualPosting';
 function App() {
   return (
     <Routes>
@@ -15,7 +17,9 @@ function App() {
     <Route path="/companies/add" element={<Add_Company />} />
     <Route path="/companies" element={<Companies />} />
     <Route path="/social-accounts" element={<SocialMediaConnection />} />
-    <Route path="/testing-upload" element={<TestingUpload />} />
+    <Route path="/manual-posting" element={<ManualPosting />} />
+    <Route path="/media/upload" element={<UploadMedia />} />
+    <Route path="/media" element={<ShowAllMedia />} />
 
     </Routes>
   );

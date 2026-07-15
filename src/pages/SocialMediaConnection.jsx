@@ -83,7 +83,7 @@ function SocialMediaConnection() {
 
   // Edit account details — accountName, accessToken, tokenExpiry (matches PUT /updateSocialAccount/:id)
   const [editTarget, setEditTarget] = useState(null); // account object | null
-  const [editForm, setEditForm] = useState({ accountName: "", accessToken: "", tokenExpiry: "" });
+  const [editForm, setEditForm] = useState({ accountName: "", accessToken: "", tokenExpiry: "" , pageId: ""});
   const [editErrors, setEditErrors] = useState({});
   const [editSaving, setEditSaving] = useState(false);
 
@@ -209,6 +209,7 @@ function SocialMediaConnection() {
     setEditTarget(account);
     setEditForm({
       accountName: account.accountName || "",
+      pageId: account.pageId || "",
       accessToken: "",
       tokenExpiry: toDateInputValue(account.tokenExpiry),
     });
@@ -228,6 +229,7 @@ function SocialMediaConnection() {
   function validateEditForm() {
     const errors = {};
     if (!editForm.accountName.trim()) errors.accountName = "Account name is required.";
+    if (!editForm.pageId.trim()) errors.pageId = "Page ID is required.";
     if (!editForm.tokenExpiry) errors.tokenExpiry = "Token expiry date is required.";
     setEditErrors(errors);
     return Object.keys(errors).length === 0;
@@ -241,6 +243,7 @@ function SocialMediaConnection() {
     try {
       const payload = {
         accountName: editForm.accountName.trim(),
+        pageId: editForm.pageId.trim(),
         tokenExpiry: editForm.tokenExpiry,
       };
       // Only send accessToken if the admin actually typed a new one —
@@ -711,6 +714,17 @@ function SocialMediaConnection() {
                     className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 ${editErrors.accountName ? "border-red-300 focus:ring-red-500" : "border-slate-300 focus:ring-indigo-500"}`}
                   />
                   {editErrors.accountName && <p className="mt-1 text-xs text-red-600">{editErrors.accountName}</p>}
+                </div>
+                 <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Page Id</label>
+                  <input
+                    type="text"
+                    value={editForm.pageId}
+                    onChange={(e) => handleEditFormChange("pageId", e.target.value)}
+                    placeholder="e.g. 1725356425525552"
+                    className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 ${editErrors.pageId ? "border-red-300 focus:ring-red-500" : "border-slate-300 focus:ring-indigo-500"}`}
+                  />
+                  {editErrors.pageId && <p className="mt-1 text-xs text-red-600">{editErrors.pageId}</p>}
                 </div>
 
                 <div>

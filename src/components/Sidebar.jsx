@@ -68,10 +68,10 @@ function Sidebar({ children }) {
         ],
       },
       {
-        title: "Upload & Post Testing",
-        icon: "fa-calendar-check",
+        title: "Manual Posting Media",
+        icon: "fa-upload",
         children: [
-          { title: "Upload & Post Testing", href: "/testing-upload" },
+          { title: "Manual Posting", href: "/manual-posting" },
         ],
       },
       {
