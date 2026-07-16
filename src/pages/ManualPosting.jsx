@@ -29,6 +29,9 @@ const PLATFORM_META = {
   },
 };
 
+// Facebook/Instagram share the same generic { pageId/accessToken/caption
+// + imageUrl|videoUrl } shape. YouTube is handled separately below since
+// its upload + token-refresh routes take a completely different payload.
 const POST_ROUTE_MAP = {
   facebook: {
     image: "/social-accounts/facebook/post-image",
@@ -41,6 +44,16 @@ const POST_ROUTE_MAP = {
     accountIdKey: "instagramAccountId",
   },
 };
+
+const YOUTUBE_UPLOAD_ROUTE = "/social-accounts/youtube/upload";
+const YOUTUBE_REFRESH_ROUTE = "/social-accounts/youtube/refresh-token";
+// Refresh proactively if the stored token expires within this window,
+// rather than waiting for the upload call to fail with an expired token.
+const YOUTUBE_TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
+function isPlatformSupported(platform) {
+  return Boolean(POST_ROUTE_MAP[platform]) || platform === "youtube";
+}
 
 function getPlatformMeta(platform) {
   return PLATFORM_META[platform] || {
@@ -194,6 +207,12 @@ function ManualPosting() {
   const [statusDetail, setStatusDetail] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // YouTube-specific fields — youtube.videos.insert needs a title
+  // separate from the caption, plus a privacy status and optional tags.
+  const [youtubeTitle, setYoutubeTitle] = useState("");
+  const [youtubePrivacy, setYoutubePrivacy] = useState("public");
+  const [youtubeTags, setYoutubeTags] = useState("");
+
   const fileInputRef = useRef(null);
 
   const selectedCompany = useMemo(
@@ -232,6 +251,9 @@ function ManualPosting() {
     setSelectedFile(null);
     setFilePreviewUrl("");
     setCaption("");
+    setYoutubeTitle("");
+    setYoutubePrivacy("public");
+    setYoutubeTags("");
     setFormError("");
     setStatusMessage("");
     setStatusDetail("");
@@ -313,10 +335,52 @@ function ManualPosting() {
     if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
     setFilePreviewUrl("");
     setCaption("");
+    setYoutubeTitle("");
+    setYoutubePrivacy("public");
+    setYoutubeTags("");
     setFormError("");
     setStatusMessage("");
     setStatusDetail("");
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  /**
+   * Returns a valid YouTube access token for this account, refreshing it
+   * first via /social-accounts/youtube/refresh-token if it's expired or
+   * about to expire. Falls back to the stored token if refresh fails —
+   * the upload call itself will then surface any auth error.
+   */
+  async function getFreshYoutubeAccessToken(account) {
+    const expiry = account.tokenExpiry ? new Date(account.tokenExpiry).getTime() : null;
+    const needsRefresh = !expiry || expiry - Date.now() <= YOUTUBE_TOKEN_REFRESH_BUFFER_MS;
+
+    if (!needsRefresh) return account.accessToken;
+
+    try {
+      const res = await api.post(YOUTUBE_REFRESH_ROUTE, { companyId: selectedCompanyId });
+      return res.data?.accessToken || account.accessToken;
+    } catch (error) {
+      console.warn("YouTube token refresh failed, using stored token instead.", error);
+      return account.accessToken;
+    }
+  }
+
+  /** Publishes the uploaded video to YouTube via /social-accounts/youtube/upload. */
+  async function postToYoutube(account, mediaSource) {
+    const accessToken = await getFreshYoutubeAccessToken(account);
+    const tagsArray = youtubeTags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+    await api.post(YOUTUBE_UPLOAD_ROUTE, {
+      accessToken,
+      title: youtubeTitle,
+      description: caption,
+      tags: tagsArray,
+      privacyStatus: youtubePrivacy,
+      videoUrl: mediaSource.mediaUrl,
+    });
   }
 
   async function handleSubmit(event) {
@@ -334,6 +398,11 @@ function ManualPosting() {
 
     if (!selectedFile) {
       setFormError("Upload a media file to continue.");
+      return;
+    }
+
+    if (hasYoutubeSelection && !youtubeTitle.trim()) {
+      setFormError("Add a YouTube title for this video.");
       return;
     }
 
@@ -395,8 +464,8 @@ function ManualPosting() {
         throw new Error("Media was uploaded, but no media record was returned.");
       }
 
-      const supportedAccounts = selectedAccounts.filter((account) => POST_ROUTE_MAP[account.platform]);
-      const unsupportedAccounts = selectedAccounts.filter((account) => !POST_ROUTE_MAP[account.platform]);
+      const supportedAccounts = selectedAccounts.filter((account) => isPlatformSupported(account.platform));
+      const unsupportedAccounts = selectedAccounts.filter((account) => !isPlatformSupported(account.platform));
       const postTargetField = mediaSource.mediaType === "video" ? "video" : "image";
 
       if (supportedAccounts.length === 0) {
@@ -417,12 +486,18 @@ function ManualPosting() {
           : instagramSelected
             ? "Instagram image publishing can still take a moment depending on Meta server load."
             : youtubeSelected && mediaSource.mediaType === "video"
-              ? "YouTube is selected for video workflow tracking."
+              ? "YouTube uploads run through Google's servers and can take a minute or more depending on video length."
               : "Publishing is running now."
       );
 
       let postedCount = 0;
       for (const account of supportedAccounts) {
+        if (account.platform === "youtube") {
+          await postToYoutube(account, mediaSource);
+          postedCount += 1;
+          continue;
+        }
+
         const routeInfo = POST_ROUTE_MAP[account.platform];
         const payload = {
           [routeInfo.accountIdKey]: account.pageId,
@@ -453,7 +528,9 @@ function ManualPosting() {
       setStatusDetail(
         mediaSource.mediaType === "video" && instagramSelected
           ? "Processing time depends on video duration, file size, Meta server load, and resolution. 70 seconds is completely normal."
-          : ""
+          : mediaSource.mediaType === "video" && youtubeSelected
+            ? "YouTube shows the video as 'processing' for a short while after upload — that's expected."
+            : ""
       );
     } catch (error) {
       setStatusTone("error");
@@ -490,26 +567,6 @@ function ManualPosting() {
             </div>
           </div>
 
-          {statusMessage && (
-            <div
-              className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${
-                statusTone === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-red-200 bg-red-50 text-red-700"
-              }`}
-            >
-              <i className={`mr-2 fa-solid ${statusTone === "success" ? "fa-circle-check" : "fa-triangle-exclamation"}`}></i>
-              {statusMessage}
-              {statusDetail && <p className="mt-2 text-xs leading-relaxed opacity-90">{statusDetail}</p>}
-            </div>
-          )}
-
-          {formError && (
-            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              <i className="fa-solid fa-triangle-exclamation mr-2"></i>
-              {formError}
-            </div>
-          )}
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
             <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
@@ -712,6 +769,11 @@ function ManualPosting() {
                               </div>
                               <div className="mt-3 text-xs text-gray-500">
                                 <KeyValue label="Page ID" value={maskValue(account.pageId, 6)} compact />
+                                <KeyValue
+                                  label="Token expiry"
+                                  value={account.tokenExpiry ? new Date(account.tokenExpiry).toLocaleDateString() : "—"}
+                                  compact
+                                />
                               </div>
                             </button>
                           );
@@ -720,6 +782,57 @@ function ManualPosting() {
                   ) : (
                     <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
                       No YouTube account is connected for this company.
+                    </div>
+                  )}
+
+                  {hasYoutubeSelection && (
+                    <div className="mt-4 space-y-4 rounded-2xl border border-red-100 bg-red-50/40 p-4">
+                      <p className="flex items-center gap-2 text-sm font-semibold text-red-700">
+                        <i className="fa-brands fa-youtube"></i>
+                        YouTube video details
+                      </p>
+
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Video Title <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={youtubeTitle}
+                          onChange={(event) => setYoutubeTitle(event.target.value)}
+                          placeholder="e.g. Behind the scenes at our studio"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                        />
+                        <p className="mt-1 text-xs text-gray-400">
+                          Required by YouTube — the caption below is used as the video description.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1.5 block text-sm font-medium text-gray-700">Privacy</label>
+                          <select
+                            value={youtubePrivacy}
+                            onChange={(event) => setYoutubePrivacy(event.target.value)}
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                          >
+                            <option value="public">Public</option>
+                            <option value="unlisted">Unlisted</option>
+                            <option value="private">Private</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1.5 block text-sm font-medium text-gray-700">Video Tags</label>
+                          <input
+                            type="text"
+                            value={youtubeTags}
+                            onChange={(event) => setYoutubeTags(event.target.value)}
+                            placeholder="marketing, launch, demo"
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                          />
+                          <p className="mt-1 text-xs text-gray-400">Comma-separated, optional.</p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -739,12 +852,39 @@ function ManualPosting() {
                   placeholder="Write your caption, hashtags, or posting notes..."
                   className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                 />
+                {hasYoutubeSelection && (
+                  <p className="mt-1.5 text-xs text-gray-400">
+                    This same text is also used as the YouTube video description.
+                  </p>
+                )}
               </div>
+
+          {statusMessage && (
+            <div
+              className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${
+                statusTone === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-red-200 bg-red-50 text-red-700"
+              }`}
+            >
+              <i className={`mr-2 fa-solid ${statusTone === "success" ? "fa-circle-check" : "fa-triangle-exclamation"}`}></i>
+              {statusMessage}
+              {statusDetail && <p className="mt-2 text-xs leading-relaxed opacity-90">{statusDetail}</p>}
+            </div>
+          )}
+
+          {formError && (
+            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <i className="fa-solid fa-triangle-exclamation mr-2"></i>
+              {formError}
+            </div>
+          )}
 
               <div className="flex flex-col gap-3 rounded-2xl bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <div className="text-sm text-gray-500">
                   <span className="font-semibold text-gray-700">Selected accounts:</span> {selectedAccounts.map((account) => getPlatformMeta(account.platform).label).join(", ") || "None"}
                 </div>
+                
 
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button
@@ -787,7 +927,10 @@ function ManualPosting() {
                   <KeyValue label="Company" value={selectedCompany?.companyName || "Not selected"} />
                   <KeyValue label="Accounts" value={selectedAccounts.length ? `${selectedAccounts.length} selected` : "None"} />
                   <KeyValue label="Media" value={previewKind ? previewKind.toUpperCase() : "Not selected"} />
-                  <KeyValue label="YouTube" value={mediaType === "video" ? (hasYoutubeSelection ? "Included" : "Required") : "Hidden"} />
+                  <KeyValue label="YouTube" value={mediaType === "video" ? (hasYoutubeSelection ? "Included" : "Optional") : "Hidden"} />
+                  {hasYoutubeSelection && (
+                    <KeyValue label="YouTube title" value={youtubeTitle || "Not set"} />
+                  )}
                 </div>
 
                 <div className="mt-5 rounded-2xl bg-gray-50 p-4 text-sm text-gray-700">
@@ -806,6 +949,11 @@ function ManualPosting() {
                   <p className="mt-2 leading-relaxed text-amber-900/90">
                     Instagram video publishing can take time. This depends on video duration, file size, Meta server load, and resolution. Small images usually take 1–5 seconds, 10-second MP4 files often take 10–30 seconds, 30–60 second reels can take 30–90 seconds, and large videos can take 1–3 minutes. So 70 seconds is completely normal.
                   </p>
+                  {hasYoutubeSelection && (
+                    <p className="mt-3 leading-relaxed text-amber-900/90">
+                      For YouTube, the access token is checked before upload and refreshed automatically via the stored refresh token if it's close to expiring — no manual reconnect needed.
+                    </p>
+                  )}
                 </div>
               )}
             </aside>
