@@ -83,7 +83,7 @@ function SocialMediaConnection() {
 
   // Edit account details — accountName, accessToken, tokenExpiry (matches PUT /updateSocialAccount/:id)
   const [editTarget, setEditTarget] = useState(null); // account object | null
-  const [editForm, setEditForm] = useState({ accountName: "", accessToken: "", tokenExpiry: "" , pageId: ""});
+  const [editForm, setEditForm] = useState({ accountName: "", accessToken: "", tokenExpiry: "", pageId: "" });
   const [editErrors, setEditErrors] = useState({});
   const [editSaving, setEditSaving] = useState(false);
 
@@ -103,6 +103,14 @@ function SocialMediaConnection() {
   useEffect(() => {
     fetchCompanies();
   }, []);
+
+  // Auto-select the first company as soon as the list loads, so the
+  // accounts dashboard is visible immediately without an extra click.
+  useEffect(() => {
+    if (!selectedCompanyId && companies.length > 0) {
+      setSelectedCompanyId(companies[0]._id);
+    }
+  }, [companies, selectedCompanyId]);
 
   useEffect(() => {
     if (selectedCompanyId) fetchAccounts(selectedCompanyId);
@@ -132,6 +140,11 @@ function SocialMediaConnection() {
     } finally {
       setAccountsLoading(false);
     }
+  }
+
+  function selectCompany(companyId) {
+    if (companyId === selectedCompanyId) return;
+    setSelectedCompanyId(companyId);
   }
 
   function openAddModal() {
@@ -282,9 +295,9 @@ function SocialMediaConnection() {
     });
   }
 
-  async function copyToken(accountId, token) {
+  async function copyToken(accountId, tokenValue) {
     try {
-      await navigator.clipboard.writeText(token);
+      await navigator.clipboard.writeText(tokenValue);
       setCopiedId(accountId);
       setTimeout(() => setCopiedId(null), 1500);
     } catch {
@@ -309,8 +322,10 @@ function SocialMediaConnection() {
     setVerifyError("");
     try {
       // Re-checks the logged-in admin's own password before exposing a token.
-      // Adjust the endpoint below to whatever your auth API exposes for this.
-      await api.post("/user/verify-password", { password: passwordInput , email : token ? JSON.parse(atob(token.split('.')[1])).email : ""}); // Assuming the token is a JWT and contains the email in its payload
+      await api.post("/user/verify-password", {
+        password: passwordInput,
+        email: token ? JSON.parse(atob(token.split(".")[1])).email : "",
+      });
 
       const { accountId, action } = pendingTokenAction;
       setRevealedTokens((prev) => ({ ...prev, [accountId]: true }));
@@ -329,240 +344,272 @@ function SocialMediaConnection() {
     }
   }
 
-  /* ---------------- Step 1: choose a company ---------------- */
-  if (!selectedCompany) {
-    return (
-      <Sidebar>
-        <div className="flex items-center justify-center bg-slate-50 px-4 py-12">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50">
-              <i className="fa-solid fa-building text-xl text-indigo-600" />
-            </div>
-            <h1 className="mt-4 text-center text-xl font-semibold text-slate-900">Select a Company</h1>
-            <p className="mt-1 text-center text-sm text-slate-500">
-              Choose which company's social media accounts you'd like to manage.
+  return (
+    <Sidebar>
+      <div className="bg-slate-50">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Social Media Accounts</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Pick a company below to connect and manage its social media accounts.
             </p>
+          </div>
 
+          {/* Company cards */}
+          <div className="mb-8">
             {companiesLoading && (
-              <p className="mt-6 text-center text-sm text-slate-400">
-                <i className="fa-solid fa-spinner fa-spin mr-2" />Loading companies...
-              </p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+                ))}
+              </div>
             )}
 
             {!companiesLoading && companiesError && (
-              <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-center">
                 <p className="text-sm text-red-600">{companiesError}</p>
-                <button onClick={fetchCompanies} className="mt-2 text-sm font-medium text-red-700 hover:underline">
+                <button onClick={fetchCompanies} className="mt-1.5 text-sm font-medium text-red-700 hover:underline">
                   Retry
                 </button>
               </div>
             )}
 
             {!companiesLoading && !companiesError && companies.length === 0 && (
-              <p className="mt-6 text-center text-sm text-slate-400">No companies found.</p>
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                No companies found. Add a company first to connect its social accounts.
+              </div>
             )}
 
             {!companiesLoading && !companiesError && companies.length > 0 && (
-              <div className="mt-6 space-y-3">
-                {companies.map((company) => (
-                  <button
-                    key={company._id}
-                    type="button"
-                    onClick={() => setSelectedCompanyId(company._id)}
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/50"
-                  >
-                    <span className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-600">
-                        {company.companyName.charAt(0)}
-                      </span>
-                      <span className="text-sm font-medium text-slate-800">{company.companyName}</span>
-                    </span>
-                    <i className="fa-solid fa-chevron-right text-xs text-slate-400" />
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {companies.map((company) => {
+                  const isSelected = company._id === selectedCompanyId;
+                  return (
+                    <button
+                      key={company._id}
+                      type="button"
+                      onClick={() => selectCompany(company._id)}
+                      className={`relative rounded-2xl border p-4 text-left shadow-sm transition-all duration-150 ${
+                        isSelected
+                          ? "border-indigo-500 bg-indigo-50/50 ring-2 ring-indigo-200"
+                          : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+                      }`}
+                    >
+                      {isSelected && (
+                        <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white">
+                          <i className="fa-solid fa-check text-[10px]" />
+                        </span>
+                      )}
+
+                      <div className="flex items-center gap-3">
+                        {company.companyLogo ? (
+                          <img
+                            src={company.companyLogo}
+                            alt=""
+                            className="h-10 w-10 flex-shrink-0 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-600">
+                            {company.companyName?.charAt(0)}
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{company.companyName}</p>
+                          {company.companyType && (
+                            <span className="mt-0.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                              {company.companyType}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-1 text-xs text-slate-500">
+                        {company.email && (
+                          <div className="flex items-center gap-1.5">
+                            <i className="fa-solid fa-envelope w-3 text-center text-slate-400" />
+                            <span className="truncate">{company.email}</span>
+                          </div>
+                        )}
+                        {company.phone && (
+                          <div className="flex items-center gap-1.5">
+                            <i className="fa-solid fa-phone w-3 text-center text-slate-400" />
+                            <span className="truncate">{company.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
-        </div>
-      </Sidebar>
-    );
-  }
 
-  /* ---------------- Step 2: accounts dashboard ---------------- */
-  return (
-    <Sidebar>
-      <div className="bg-slate-50">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <span>{selectedCompany.companyName}</span>
+          {/* Accounts dashboard for the selected company */}
+          {selectedCompany && (
+            <>
+              <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-slate-500">
+                    Showing accounts for <span className="font-semibold text-slate-800">{selectedCompany.companyName}</span>
+                  </p>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setSelectedCompanyId(null)}
-                  className="font-medium text-indigo-600 hover:underline"
+                  onClick={openAddModal}
+                  disabled={allPlatformsConnected}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  Change
+                  <i className="fa-solid fa-plus" />
+                  Add New Social Account
                 </button>
               </div>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">Social Media Accounts</h1>
-              <p className="mt-1 text-sm text-slate-500">Connect and manage social media accounts for this company.</p>
-            </div>
 
-            <button
-              type="button"
-              onClick={openAddModal}
-              disabled={allPlatformsConnected}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              <i className="fa-solid fa-plus" />
-              Add New Social Account
-            </button>
-          </div>
+              {/* Content */}
+              {accountsLoading && (
+                <div className="flex justify-center py-20 text-slate-400">
+                  <i className="fa-solid fa-spinner fa-spin text-2xl" />
+                </div>
+              )}
 
-          {/* Content */}
-          {accountsLoading && (
-            <div className="flex justify-center py-20 text-slate-400">
-              <i className="fa-solid fa-spinner fa-spin text-2xl" />
-            </div>
-          )}
-
-          {!accountsLoading && accountsError && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
-              <i className="fa-solid fa-triangle-exclamation mb-2 block text-xl text-red-500" />
-              <p className="text-sm text-red-600">{accountsError}</p>
-              <button
-                onClick={() => fetchAccounts(selectedCompanyId)}
-                className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {!accountsLoading && !accountsError && accounts.length === 0 && (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-20 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50">
-                <i className="fa-solid fa-link text-xl text-indigo-500" />
-              </div>
-              <h3 className="mt-4 text-base font-semibold text-slate-900">No social accounts connected</h3>
-              <p className="mt-1.5 max-w-sm text-sm text-slate-500">
-                Click "Add New Social Account" to connect Facebook, Instagram, LinkedIn, X, or YouTube.
-              </p>
-            </div>
-          )}
-
-          {!accountsLoading && !accountsError && accounts.length > 0 && (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {accounts.map((account) => {
-                const platform = PLATFORMS.find((p) => p.id === account.platform);
-                const status = getAccountStatus(account);
-                const daysLeft = getDaysUntil(account.tokenExpiry);
-                const isRevealed = Boolean(revealedTokens[account._id]);
-
-                return (
-                  <article
-                    key={account._id}
-                    className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+              {!accountsLoading && accountsError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+                  <i className="fa-solid fa-triangle-exclamation mb-2 block text-xl text-red-500" />
+                  <p className="text-sm text-red-600">{accountsError}</p>
+                  <button
+                    onClick={() => fetchAccounts(selectedCompanyId)}
+                    className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
                   >
-                    <header className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${platform.color}1A` }}>
-                          <i className={`${platform.icon} text-lg`} style={{ color: platform.color }} />
-                        </div>
-                        <h3 className="text-sm font-semibold text-slate-900">{platform.name}</h3>
-                      </div>
-                      <StatusBadge status={status} />
-                    </header>
+                    Retry
+                  </button>
+                </div>
+              )}
 
-                    <dl className="mt-5 flex-1 space-y-3 text-sm">
-                      <div>
-                        <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Account Name</dt>
-                        <dd className="mt-0.5 truncate text-slate-700">{account.accountName}</dd>
-                      </div>
+              {!accountsLoading && !accountsError && accounts.length === 0 && (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-20 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50">
+                    <i className="fa-solid fa-link text-xl text-indigo-500" />
+                  </div>
+                  <h3 className="mt-4 text-base font-semibold text-slate-900">No social accounts connected</h3>
+                  <p className="mt-1.5 max-w-sm text-sm text-slate-500">
+                    Click "Add New Social Account" to connect Facebook, Instagram, LinkedIn, X, or YouTube.
+                  </p>
+                </div>
+              )}
 
-                      <div>
-                        <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Page ID</dt>
-                        <dd className="mt-0.5 truncate font-mono text-slate-700">{account.pageId}</dd>
-                      </div>
+              {!accountsLoading && !accountsError && accounts.length > 0 && (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {accounts.map((account) => {
+                    const platform = PLATFORMS.find((p) => p.id === account.platform);
+                    const status = getAccountStatus(account);
+                    const daysLeft = getDaysUntil(account.tokenExpiry);
+                    const isRevealed = Boolean(revealedTokens[account._id]);
 
-                      <div>
-                        <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Access Token</dt>
-                        <dd className="mt-0.5 flex items-center gap-2">
-                          <span className="truncate font-mono text-slate-700">
-                            {isRevealed ? account.accessToken : maskToken(account.accessToken)}
-                          </span>
+                    return (
+                      <article
+                        key={account._id}
+                        className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+                      >
+                        <header className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${platform.color}1A` }}>
+                              <i className={`${platform.icon} text-lg`} style={{ color: platform.color }} />
+                            </div>
+                            <h3 className="text-sm font-semibold text-slate-900">{platform.name}</h3>
+                          </div>
+                          <StatusBadge status={status} />
+                        </header>
+
+                        <dl className="mt-5 flex-1 space-y-3 text-sm">
+                          <div>
+                            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Account Name</dt>
+                            <dd className="mt-0.5 truncate text-slate-700">{account.accountName}</dd>
+                          </div>
+
+                          <div>
+                            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Page ID</dt>
+                            <dd className="mt-0.5 truncate font-mono text-slate-700">{account.pageId}</dd>
+                          </div>
+
+                          <div>
+                            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Access Token</dt>
+                            <dd className="mt-0.5 flex items-center gap-2">
+                              <span className="truncate font-mono text-slate-700">
+                                {isRevealed ? account.accessToken : maskToken(account.accessToken)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => requestTokenAction(account, "reveal")}
+                                className="flex-shrink-0 text-slate-400 hover:text-slate-600"
+                                aria-label={isRevealed ? "Hide access token" : "Show access token"}
+                                title={isRevealed ? "Hide token" : "Verify password to view token"}
+                              >
+                                <i className={`fa-solid ${isRevealed ? "fa-eye-slash" : "fa-eye"} text-xs`} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => requestTokenAction(account, "copy")}
+                                className="flex-shrink-0 text-slate-400 hover:text-slate-600"
+                                aria-label="Copy access token"
+                                title={isRevealed ? "Copy token" : "Verify password to copy token"}
+                              >
+                                <i className={`fa-solid ${copiedId === account._id ? "fa-check text-emerald-500" : "fa-copy"} text-xs`} />
+                              </button>
+                              {!isRevealed && <i className="fa-solid fa-lock text-[10px] text-slate-300" title="Password verification required" />}
+                            </dd>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Created</dt>
+                              <dd className="mt-0.5 text-slate-700">{formatDate(account.createdAt)}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Token Expiry</dt>
+                              <dd className={`mt-0.5 font-medium ${status === "expired" ? "text-red-600" : status === "expiring" ? "text-amber-600" : "text-slate-700"}`}>
+                                {formatDate(account.tokenExpiry)}
+                              </dd>
+                            </div>
+                          </div>
+
+                          {status === "expiring" && (
+                            <p className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                              <i className="fa-solid fa-triangle-exclamation" />
+                              Expires in {daysLeft} day{daysLeft === 1 ? "" : "s"} — refresh the token soon.
+                            </p>
+                          )}
+                          {status === "expired" && (
+                            <p className="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                              <i className="fa-solid fa-circle-xmark" />
+                              Token expired {Math.abs(daysLeft)} day{Math.abs(daysLeft) === 1 ? "" : "s"} ago. Reconnect to resume posting.
+                            </p>
+                          )}
+                        </dl>
+
+                        <div className="mt-5 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
                           <button
                             type="button"
-                            onClick={() => requestTokenAction(account, "reveal")}
-                            className="flex-shrink-0 text-slate-400 hover:text-slate-600"
-                            aria-label={isRevealed ? "Hide access token" : "Show access token"}
-                            title={isRevealed ? "Hide token" : "Verify password to view token"}
+                            onClick={() => openEditModal(account)}
+                            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
                           >
-                            <i className={`fa-solid ${isRevealed ? "fa-eye-slash" : "fa-eye"} text-xs`} />
+                            <i className="fa-solid fa-pen mr-1.5 text-xs" />
+                            Edit
                           </button>
                           <button
                             type="button"
-                            onClick={() => requestTokenAction(account, "copy")}
-                            className="flex-shrink-0 text-slate-400 hover:text-slate-600"
-                            aria-label="Copy access token"
-                            title={isRevealed ? "Copy token" : "Verify password to copy token"}
+                            onClick={() => setDisconnectTarget(account)}
+                            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                           >
-                            <i className={`fa-solid ${copiedId === account._id ? "fa-check text-emerald-500" : "fa-copy"} text-xs`} />
+                            Disconnect
                           </button>
-                          {!isRevealed && <i className="fa-solid fa-lock text-[10px] text-slate-300" title="Password verification required" />}
-                        </dd>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Created</dt>
-                          <dd className="mt-0.5 text-slate-700">{formatDate(account.createdAt)}</dd>
                         </div>
-                        <div>
-                          <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">Token Expiry</dt>
-                          <dd className={`mt-0.5 font-medium ${status === "expired" ? "text-red-600" : status === "expiring" ? "text-amber-600" : "text-slate-700"}`}>
-                            {formatDate(account.tokenExpiry)}
-                          </dd>
-                        </div>
-                      </div>
-
-                      {status === "expiring" && (
-                        <p className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                          <i className="fa-solid fa-triangle-exclamation" />
-                          Expires in {daysLeft} day{daysLeft === 1 ? "" : "s"} — refresh the token soon.
-                        </p>
-                      )}
-                      {status === "expired" && (
-                        <p className="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                          <i className="fa-solid fa-circle-xmark" />
-                          Token expired {Math.abs(daysLeft)} day{Math.abs(daysLeft) === 1 ? "" : "s"} ago. Reconnect to resume posting.
-                        </p>
-                      )}
-                    </dl>
-
-                    <div className="mt-5 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(account)}
-                        className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
-                      >
-                        <i className="fa-solid fa-pen mr-1.5 text-xs" />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDisconnectTarget(account)}
-                        className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                      >
-                        Disconnect
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -580,6 +627,39 @@ function SocialMediaConnection() {
                   <i className="fa-solid fa-xmark" />
                 </button>
               </div>
+
+              {/* Mini company card — which company this account will be linked to */}
+              {selectedCompany && (
+                <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  {selectedCompany.companyLogo ? (
+                    <img
+                      src={selectedCompany.companyLogo}
+                      alt=""
+                      className="h-10 w-10 flex-shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white text-sm font-semibold text-slate-600 ring-1 ring-slate-200">
+                      {selectedCompany.companyName?.charAt(0)}
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{selectedCompany.companyName}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                      {selectedCompany.companyType && (
+                        <span className="rounded-full bg-white px-2 py-0.5 font-medium text-slate-500 ring-1 ring-slate-200">
+                          {selectedCompany.companyType}
+                        </span>
+                      )}
+                      {selectedCompany.email && (
+                        <span className="flex items-center gap-1 truncate">
+                          <i className="fa-solid fa-envelope text-[10px] text-slate-400" />
+                          {selectedCompany.email}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {modalStep === "select-platform" ? (
                 <>
@@ -715,7 +795,7 @@ function SocialMediaConnection() {
                   />
                   {editErrors.accountName && <p className="mt-1 text-xs text-red-600">{editErrors.accountName}</p>}
                 </div>
-                 <div>
+                <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">Page Id</label>
                   <input
                     type="text"

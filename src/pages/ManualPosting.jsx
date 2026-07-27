@@ -29,9 +29,11 @@ const PLATFORM_META = {
   },
 };
 
-// Facebook/Instagram share the same generic { pageId/accessToken/caption
-// + imageUrl|videoUrl } shape. YouTube is handled separately below since
-// its upload + token-refresh routes take a completely different payload.
+// Facebook/Instagram/LinkedIn share the same generic { accessToken/caption
+// + imageUrl|videoUrl } shape (LinkedIn just doesn't need an account id —
+// it resolves the author from the access token itself). YouTube is handled
+// separately below since its upload + token-refresh routes take a
+// completely different payload.
 const POST_ROUTE_MAP = {
   facebook: {
     image: "/social-accounts/facebook/post-image",
@@ -42,6 +44,11 @@ const POST_ROUTE_MAP = {
     image: "/social-accounts/instagram/post-image",
     video: "/social-accounts/instagram/post-video",
     accountIdKey: "instagramAccountId",
+  },
+  linkedin: {
+    image: "/social-accounts/linkedin/post-image",
+    video: "/social-accounts/linkedin/post-video",
+    accountIdKey: null,
   },
 };
 
@@ -203,7 +210,7 @@ function ManualPosting() {
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [formError, setFormError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
-  const [statusTone, setStatusTone] = useState("success");
+  const [statusTone, setStatusTone] = useState("info"); // 'info' | 'success' | 'error'
   const [statusDetail, setStatusDetail] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -214,6 +221,7 @@ function ManualPosting() {
   const [youtubeTags, setYoutubeTags] = useState("");
 
   const fileInputRef = useRef(null);
+  const messageRef = useRef(null);
 
   const selectedCompany = useMemo(
     () => companies.find((company) => company._id === selectedCompanyId) || null,
@@ -232,6 +240,11 @@ function ManualPosting() {
     [accounts, mediaType]
   );
   const hasYoutubeSelection = selectedAccounts.some((account) => account.platform === "youtube");
+  const hasLinkedinSelection = selectedAccounts.some((account) => account.platform === "linkedin");
+
+  // Step numbers stay correct whether or not the YouTube section is showing.
+  const youtubeStepNumber = 4;
+  const captionStepNumber = mediaType === "video" ? 5 : 4;
 
   useEffect(() => {
     fetchCompanies();
@@ -270,6 +283,20 @@ function ManualPosting() {
       if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
     };
   }, [filePreviewUrl]);
+
+  // Always bring the status/error banner into view so progress updates
+  // during a long submit aren't missed while scrolled down the form.
+  useEffect(() => {
+    if ((formError || statusMessage) && messageRef.current) {
+      messageRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [formError, statusMessage]);
+
+  function dismissMessage() {
+    setFormError("");
+    setStatusMessage("");
+    setStatusDetail("");
+  }
 
   async function fetchCompanies() {
     setCompaniesLoading(true);
@@ -423,12 +450,13 @@ function ManualPosting() {
     setSubmitting(true);
     setFormError("");
     setStatusMessage("");
-    setStatusTone("success");
+    setStatusTone("info");
     setStatusDetail("");
 
     try {
       const instagramSelected = selectedAccounts.some((account) => account.platform === "instagram");
       const youtubeSelected = selectedAccounts.some((account) => account.platform === "youtube");
+      const linkedinSelected = selectedAccounts.some((account) => account.platform === "linkedin");
 
       setStatusMessage(
         currentMediaType === "video" ? "Compressing video before upload..." : "Preparing image for upload..."
@@ -487,7 +515,9 @@ function ManualPosting() {
             ? "Instagram image publishing can still take a moment depending on Meta server load."
             : youtubeSelected && mediaSource.mediaType === "video"
               ? "YouTube uploads run through Google's servers and can take a minute or more depending on video length."
-              : "Publishing is running now."
+              : linkedinSelected && mediaSource.mediaType === "video"
+                ? "LinkedIn waits for the video to finish processing before publishing — this can take up to a minute."
+                : "Publishing is running now."
       );
 
       let postedCount = 0;
@@ -500,10 +530,15 @@ function ManualPosting() {
 
         const routeInfo = POST_ROUTE_MAP[account.platform];
         const payload = {
-          [routeInfo.accountIdKey]: account.pageId,
           accessToken: account.accessToken,
           caption,
         };
+
+        // LinkedIn has no accountIdKey — its API derives the author
+        // from the access token, so nothing else needs to be sent.
+        if (routeInfo.accountIdKey) {
+          payload[routeInfo.accountIdKey] = account.pageId;
+        }
 
         if (mediaSource.mediaType === "video") {
           payload.videoUrl = mediaSource.mediaUrl;
@@ -520,6 +555,7 @@ function ManualPosting() {
           ? ` ${unsupportedAccounts.map((account) => account.platform).join(", ")} are not wired for posting yet.`
           : "";
 
+      setStatusTone("success");
       setStatusMessage(
         mediaSource
           ? `Media is ready and posted to ${postedCount} account${postedCount === 1 ? "" : "s"}.${unsupportedMessage}`
@@ -543,20 +579,25 @@ function ManualPosting() {
   }
 
   const previewKind = mediaType || "";
+  const hasMessage = Boolean(formError || statusMessage);
+  const messageTone = formError ? "error" : statusTone;
 
   return (
     <Sidebar>
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-          <div className="mb-6 flex flex-col gap-4 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 px-5 py-6 text-white shadow-lg shadow-slate-900/10 sm:px-6 sm:py-7 lg:flex-row lg:items-end lg:justify-between">
+          {/* Hero */}
+          <div className="mb-6 flex flex-col gap-5 rounded-3xl border border-gray-200 bg-white px-5 py-6 shadow-sm sm:px-6 sm:py-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-blue-100 ring-1 ring-white/10">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-600 ring-1 ring-indigo-100">
                 <i className="fa-solid fa-pen-to-square"></i>
                 Manual Posting Workflow
               </div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Publish media with company-aware social accounts</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-200 sm:text-base">
-                Pick a company, choose connected accounts, select a media item from that company’s library or upload a new one, then publish with the right platform route automatically.
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                Publish media with company-aware social accounts
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-gray-500 sm:text-base">
+                Pick a company, choose connected accounts, select a media item from that company's library or upload a new one, then publish with the right platform route automatically.
               </p>
             </div>
 
@@ -567,6 +608,43 @@ function ManualPosting() {
             </div>
           </div>
 
+          {/* Status / error banner — always visible near the top of the page */}
+          {hasMessage && (
+            <div
+              ref={messageRef}
+              className={`mb-6 flex items-start justify-between gap-3 rounded-2xl border px-4 py-3.5 text-sm shadow-sm ${
+                messageTone === "error"
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : messageTone === "success"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-blue-200 bg-blue-50 text-blue-700"
+              }`}
+            >
+              <div className="flex items-start gap-2.5">
+                <i
+                  className={`fa-solid mt-0.5 ${
+                    messageTone === "error"
+                      ? "fa-triangle-exclamation"
+                      : messageTone === "success"
+                        ? "fa-circle-check"
+                        : "fa-spinner fa-spin"
+                  }`}
+                ></i>
+                <div>
+                  <p className="font-medium">{formError || statusMessage}</p>
+                  {!formError && statusDetail && <p className="mt-1 text-xs leading-relaxed opacity-90">{statusDetail}</p>}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={dismissMessage}
+                aria-label="Dismiss message"
+                className="flex-shrink-0 text-current opacity-60 transition-opacity hover:opacity-100"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          )}
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
             <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
@@ -584,7 +662,7 @@ function ManualPosting() {
                     <select
                       value={selectedCompanyId}
                       onChange={handleCompanyChange}
-                      className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-10 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                      className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-10 text-sm text-gray-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                     >
                       <option value="">Select company</option>
                       {companies.map((company) => (
@@ -610,13 +688,13 @@ function ManualPosting() {
               </div>
 
               <div>
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <SectionTitle
                     icon="fa-share-nodes"
                     title="2. Select social accounts"
                     description="Each connected account already carries its page ID and access token from the backend."
                   />
-                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                  <span className="inline-flex w-fit items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
                     {selectedAccounts.length} selected
                   </span>
                 </div>
@@ -663,7 +741,7 @@ function ManualPosting() {
                             <div className={`flex h-11 w-11 items-center justify-center rounded-xl border ${meta.border} ${selected ? meta.ring : "bg-gray-50 text-gray-500"}`}>
                               <i className={`${meta.icon} text-lg`}></i>
                             </div>
-                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${selected ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
+                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${selected ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600"}`}>
                               {selected ? "Selected" : "Tap to select"}
                             </span>
                           </div>
@@ -697,7 +775,7 @@ function ManualPosting() {
                     type="file"
                     accept="image/*,video/*"
                     onChange={handleFileChange}
-                    className="block w-full cursor-pointer rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-gray-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-gray-800"
+                    className="block w-full cursor-pointer rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-700"
                   />
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -737,7 +815,7 @@ function ManualPosting() {
                 <div>
                   <SectionTitle
                     icon="fa-youtube"
-                    title="4. YouTube selection"
+                    title={`${youtubeStepNumber}. YouTube selection`}
                     description="Visible only for video content so the workflow stays focused on the required platform."
                   />
 
@@ -841,7 +919,7 @@ function ManualPosting() {
               <div>
                 <SectionTitle
                   icon="fa-comment-dots"
-                  title="4. Caption"
+                  title={`${captionStepNumber}. Caption`}
                   description="Write or refine the caption before uploading and publishing."
                 />
 
@@ -850,7 +928,7 @@ function ManualPosting() {
                   onChange={(event) => setCaption(event.target.value)}
                   rows={5}
                   placeholder="Write your caption, hashtags, or posting notes..."
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                 />
                 {hasYoutubeSelection && (
                   <p className="mt-1.5 text-xs text-gray-400">
@@ -859,32 +937,11 @@ function ManualPosting() {
                 )}
               </div>
 
-          {statusMessage && (
-            <div
-              className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${
-                statusTone === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-red-200 bg-red-50 text-red-700"
-              }`}
-            >
-              <i className={`mr-2 fa-solid ${statusTone === "success" ? "fa-circle-check" : "fa-triangle-exclamation"}`}></i>
-              {statusMessage}
-              {statusDetail && <p className="mt-2 text-xs leading-relaxed opacity-90">{statusDetail}</p>}
-            </div>
-          )}
-
-          {formError && (
-            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              <i className="fa-solid fa-triangle-exclamation mr-2"></i>
-              {formError}
-            </div>
-          )}
-
               <div className="flex flex-col gap-3 rounded-2xl bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <div className="text-sm text-gray-500">
-                  <span className="font-semibold text-gray-700">Selected accounts:</span> {selectedAccounts.map((account) => getPlatformMeta(account.platform).label).join(", ") || "None"}
+                  <span className="font-semibold text-gray-700">Selected accounts:</span>{" "}
+                  {selectedAccounts.map((account) => getPlatformMeta(account.platform).label).join(", ") || "None"}
                 </div>
-                
 
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button
@@ -897,7 +954,7 @@ function ManualPosting() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="inline-flex items-center justify-center rounded-2xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                    className="inline-flex items-center justify-center rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                   >
                     {submitting ? (
                       <>
@@ -954,6 +1011,11 @@ function ManualPosting() {
                       For YouTube, the access token is checked before upload and refreshed automatically via the stored refresh token if it's close to expiring — no manual reconnect needed.
                     </p>
                   )}
+                  {hasLinkedinSelection && (
+                    <p className="mt-3 leading-relaxed text-amber-900/90">
+                      For LinkedIn, the server waits for the video to finish processing before creating the post, so the publish step can take up to about a minute by itself.
+                    </p>
+                  )}
                 </div>
               )}
             </aside>
@@ -967,11 +1029,11 @@ function ManualPosting() {
 function SectionTitle({ icon, title, description }) {
   return (
     <div className="mb-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-900 text-white">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
           <i className={`fa-solid ${icon}`}></i>
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-lg font-bold text-gray-900">{title}</h2>
           <p className="text-sm text-gray-500">{description}</p>
         </div>
@@ -982,9 +1044,9 @@ function SectionTitle({ icon, title, description }) {
 
 function StatPill({ label, value }) {
   return (
-    <div className="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/10 backdrop-blur">
-      <div className="text-[11px] uppercase tracking-wide text-slate-300">{label}</div>
-      <div className="mt-1 text-base font-semibold text-white">{value}</div>
+    <div className="rounded-2xl bg-gray-50 px-4 py-3 ring-1 ring-gray-100">
+      <div className="text-[11px] uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="mt-1 text-base font-semibold text-gray-900">{value}</div>
     </div>
   );
 }

@@ -9,6 +9,8 @@ import SocialMediaConnection from './pages/SocialMediaConnection';
 import UploadMedia from './pages/UploadMedia';
 import ShowAllMedia from './pages/ShowAllMedia';
 import ManualPosting from './pages/ManualPosting';
+import PrivacyPolicies from './pages/PrivacyPolicies';
+import TermsAndConditions from './pages/TermsAndConditions';
 function App() {
   return (
     <Routes>
@@ -20,6 +22,8 @@ function App() {
     <Route path="/manual-posting" element={<ManualPosting />} />
     <Route path="/media/upload" element={<UploadMedia />} />
     <Route path="/media" element={<ShowAllMedia />} />
+    <Route path='/privacy-policies' element={<PrivacyPolicies />} />
+    <Route path='/terms-and-conditions' element={<TermsAndConditions />} />
 
     </Routes>
   );
