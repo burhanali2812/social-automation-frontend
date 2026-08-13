@@ -587,9 +587,9 @@ function ManualPosting() {
   return (
     <Sidebar>
       <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50">
-        <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl px-2 py-3 sm:px-6 sm:py-6 lg:px-8">
           {/* Hero */}
-          <div className="mb-6 flex flex-col gap-5 rounded-3xl border border-gray-200 bg-white px-5 py-6 shadow-sm sm:px-6 sm:py-7 lg:flex-row lg:items-end lg:justify-between">
+          <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white px-3 py-4 shadow-sm sm:mb-6 sm:gap-5 sm:rounded-3xl sm:px-6 sm:py-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0 max-w-2xl">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-600 ring-1 ring-indigo-100">
                 <i className="fa-solid fa-pen-to-square"></i>
@@ -603,17 +603,17 @@ function ManualPosting() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 text-center text-sm sm:grid-cols-3 lg:min-w-[360px]">
+            <div className="grid grid-cols-1 gap-2 text-center text-sm sm:grid-cols-3 sm:gap-3 lg:min-w-[360px]">
               <StatPill label="Accounts" value={selectedAccounts.length} />
               <StatPill label="Media" value={previewKind ? previewKind.toUpperCase() : "NONE"} />
               <StatPill label="Queue" value={selectedCompany ? "Ready" : "Pick company"} />
             </div>
           </div>
 
-          <div className="grid w-full max-w-full gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid w-full max-w-full gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
             <form
               onSubmit={handleSubmit}
-              className="min-w-0 space-y-6 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
+              className="min-w-0 space-y-5 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:space-y-6 sm:rounded-3xl sm:p-6 lg:p-8"
             >
               <SectionTitle
                 icon="fa-building"
@@ -621,7 +621,7 @@ function ManualPosting() {
                 description="Choose the company first, then select the connected social accounts you want to use."
               />
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-3 sm:gap-5 md:grid-cols-2">
                 <div className="min-w-0">
                   <label className="mb-2 block text-sm font-semibold text-gray-800">Company</label>
                   <div className="relative">
@@ -644,7 +644,7 @@ function ManualPosting() {
                   {!companiesLoading && companiesError && <InlineError text={companiesError} />}
                 </div>
 
-                <div className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <div className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50 p-3 sm:p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Auto-filled from DB</p>
                   <div className="mt-2 space-y-2 text-sm text-gray-700">
                     <KeyValue label="Company" value={selectedCompany?.companyName || "Not selected"} />
@@ -667,7 +667,7 @@ function ManualPosting() {
                 </div>
 
                 {!selectedCompanyId && (
-                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-3 py-5 text-center text-sm text-gray-500 sm:px-3 sm:py-6">
                     Choose a company to load connected social accounts.
                   </div>
                 )}
@@ -680,17 +680,17 @@ function ManualPosting() {
                 )}
 
                 {selectedCompanyId && !accountsLoading && accountsError && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">{accountsError}</div>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">{accountsError}</div>
                 )}
 
                 {selectedCompanyId && !accountsLoading && !accountsError && visibleAccounts.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-500">
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-3 py-5 text-center text-sm text-gray-500">
                     No connected social accounts found for this company.
                   </div>
                 )}
 
                 {visibleAccounts.length > 0 && (
-                  <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
                     {visibleAccounts.map((account) => {
                       const meta = getPlatformMeta(account.platform);
                       const selected = selectedAccountIds.includes(account._id);
@@ -700,7 +700,7 @@ function ManualPosting() {
                           key={account._id}
                           type="button"
                           onClick={() => toggleAccount(account._id)}
-                          className={`group min-w-0 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+                          className={`group min-w-0 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md sm:p-4 ${
                             selected ? `border-transparent ring-2 ${meta.ring}` : "border-gray-200 bg-white hover:border-gray-300"
                           }`}
                         >
@@ -735,31 +735,31 @@ function ManualPosting() {
                   description="Upload a new image or video file. Videos are compressed before upload when possible."
                 />
 
-                <div className="mt-5 min-w-0 rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                <div className="mt-4 min-w-0 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-3 sm:mt-5 sm:rounded-3xl sm:p-4">
                   <label className="mb-2 block text-sm font-semibold text-gray-800">Image or video</label>
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*,video/*"
                     onChange={handleFileChange}
-                    className="block w-full cursor-pointer rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-700"
+                    className="block w-full cursor-pointer rounded-2xl border border-gray-200 bg-white px--2 py-3 text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-700"
                   />
 
-                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="mt-3 grid grid-cols-1 gap-2.5 sm:mt-4 sm:gap-3 sm:grid-cols-2">
                     <InfoCard label="Media type" value={previewKind ? previewKind.toUpperCase() : "Not selected"} />
                     <InfoCard label="File size" value={selectedFile ? formatFileSize(selectedFile.size) : "—"} />
                   </div>
 
                   {mediaType === "video" && (
-                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 sm:mt-4 sm:px-2 sm:py-3">
                         Video posts are compressed before upload when a new file is selected.
                     </div>
                   )}
                 </div>
 
-                <div className="mt-5 min-w-0 rounded-3xl border border-gray-200 bg-white">
-                  <div className="border-b border-gray-100 px-4 py-3 text-sm font-semibold text-gray-800">Selected media preview</div>
-                  <div className="flex min-h-[240px] items-center justify-center bg-gray-50 p-4">
+                <div className="mt-4 min-w-0 rounded-2xl border border-gray-200 bg-white sm:mt-5 sm:rounded-3xl">
+                  <div className="border-b border-gray-100 px-3 py-2.5 text-sm font-semibold text-gray-800 sm:px-3 sm:py-3">Selected media preview</div>
+                  <div className="flex min-h-[200px] items-center justify-center bg-gray-50 p-3 sm:min-h-[240px] sm:p-4">
                     {!previewUrl && (
                       <div className="text-center text-sm text-gray-400">
                         <i className="fa-regular fa-image mb-2 block text-3xl"></i>
@@ -787,7 +787,7 @@ function ManualPosting() {
                   />
 
                   {visibleAccounts.some((account) => account.platform === "youtube") ? (
-                    <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
                       {visibleAccounts
                         .filter((account) => account.platform === "youtube")
                         .map((account) => {
@@ -799,7 +799,7 @@ function ManualPosting() {
                               key={account._id}
                               type="button"
                               onClick={() => toggleAccount(account._id)}
-                              className={`min-w-0 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+                              className={`min-w-0 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md sm:p-4 ${
                                 selected ? `border-transparent ring-2 ${meta.ring}` : "border-gray-200 bg-white"
                               }`}
                             >
@@ -825,13 +825,13 @@ function ManualPosting() {
                         })}
                     </div>
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-3 py-5 text-sm text-gray-500">
                       No YouTube account is connected for this company.
                     </div>
                   )}
 
                   {hasYoutubeSelection && (
-                    <div className="mt-4 min-w-0 space-y-4 rounded-2xl border border-red-100 bg-red-50/40 p-4">
+                    <div className="mt-3 min-w-0 space-y-3 rounded-2xl border border-red-100 bg-red-50/40 p-3 sm:mt-4 sm:space-y-4 sm:p-4">
                       <p className="flex items-center gap-2 text-sm font-semibold text-red-700">
                         <i className="fa-brands fa-youtube"></i>
                         YouTube video details
@@ -853,7 +853,7 @@ function ManualPosting() {
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
                         <div className="min-w-0">
                           <label className="mb-1.5 block text-sm font-medium text-gray-700">Privacy</label>
                           <select
@@ -895,7 +895,7 @@ function ManualPosting() {
                   onChange={(event) => setCaption(event.target.value)}
                   rows={5}
                   placeholder="Write your caption, hashtags, or posting notes..."
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 sm:px-4 sm:py-3"
                 />
                 {hasYoutubeSelection && (
                   <p className="mt-1.5 text-xs text-gray-400">
@@ -904,7 +904,7 @@ function ManualPosting() {
                 )}
               </div>
 
-              <div className="flex min-w-0 flex-col gap-3 rounded-2xl bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+              <div className="flex min-w-0 flex-col gap-3 rounded-2xl bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <div className="min-w-0 truncate text-sm text-gray-500">
                   <span className="font-semibold text-gray-700">Selected accounts:</span>{" "}
                   {selectedAccounts.map((account) => getPlatformMeta(account.platform).label).join(", ") || "None"}
@@ -914,7 +914,7 @@ function ManualPosting() {
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="rounded-2xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:w-auto"
+                    className="rounded-2xl border border-gray-200 px-2 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:px-5 sm:py-3 sm:w-auto"
                   >
                     Reset
                   </button>
@@ -940,7 +940,7 @@ function ManualPosting() {
             </form>
 
             <aside className="min-w-0 space-y-6">
-              <div className="min-w-0 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+              <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-6">
                 <SectionTitle
                   icon="fa-list-check"
                   title="Live summary"
@@ -957,7 +957,7 @@ function ManualPosting() {
                   )}
                 </div>
 
-                <div className="mt-5 min-w-0 rounded-2xl bg-gray-50 p-4 text-sm text-gray-700">
+                <div className="mt-4 min-w-0 rounded-2xl bg-gray-50 p-3 text-sm text-gray-700 sm:mt-5 sm:p-4">
                   <p className="font-semibold text-gray-900">Posting setup</p>
                   <div className="mt-2 space-y-2">
                     <KeyValue label="Selected file" value={selectedFile?.name || "None"} />
@@ -968,7 +968,7 @@ function ManualPosting() {
               </div>
 
               {mediaType === "video" && (
-                <div className="min-w-0 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm sm:p-6">
+                <div className="min-w-0 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 shadow-sm sm:rounded-3xl sm:p-6">
                   <p className="font-semibold">Video processing note</p>
                   <p className="mt-2 leading-relaxed text-amber-900/90">
                     Instagram video publishing can take time. This depends on video duration, file size, Meta server load, and resolution. Small images usually take 1–5 seconds, 10-second MP4 files often take 10–30 seconds, 30–60 second reels can take 30–90 seconds, and large videos can take 1–3 minutes. So 70 seconds is completely normal.
@@ -993,7 +993,7 @@ function ManualPosting() {
       {/* Centered status/loading modal — dark blurred backdrop */}
       {showOverlay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 text-center shadow-2xl sm:rounded-3xl sm:p-6">
             <div
               className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${
                 messageTone === "error"
@@ -1039,8 +1039,8 @@ function ManualPosting() {
 
 function SectionTitle({ icon, title, description }) {
   return (
-    <div className="mb-4 min-w-0">
-      <div className="flex min-w-0 items-start gap-3">
+    <div className="mb-3 min-w-0 sm:mb-4">
+      <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
           <i className={`fa-solid ${icon}`}></i>
         </div>
@@ -1055,7 +1055,7 @@ function SectionTitle({ icon, title, description }) {
 
 function StatPill({ label, value }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-gray-50 px-4 py-3 ring-1 ring-gray-100">
+    <div className="min-w-0 rounded-2xl bg-gray-50 px-3 py-2.5 ring-1 ring-gray-100 sm:px-4 sm:py-3">
       <div className="truncate text-[11px] uppercase tracking-wide text-gray-500">{label}</div>
       <div className="mt-1 truncate text-base font-semibold text-gray-900">{value}</div>
     </div>
@@ -1073,7 +1073,7 @@ function KeyValue({ label, value, compact = false }) {
 
 function InfoCard({ label, value }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-100">
+    <div className="min-w-0 rounded-2xl bg-white px-3 py-2.5 ring-1 ring-gray-100 sm:px-4 sm:py-3">
       <div className="truncate text-xs uppercase tracking-wide text-gray-400">{label}</div>
       <div className="mt-1 truncate text-sm font-semibold text-gray-900">{value}</div>
     </div>

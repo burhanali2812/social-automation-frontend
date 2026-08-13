@@ -285,7 +285,7 @@ function Sidebar({ children }) {
 
       {isOpen && <div onClick={closeMenu} className="fixed inset-0 z-[1048] bg-black/45 lg:hidden" />}
 
-      <main className="min-h-screen px-4 py-5 pt-[100px] lg:ml-[270px] lg:px-6 lg:py-6 lg:pt-6">
+      <main className="min-h-screen  py-5 pt-[100px] lg:ml-[270px] lg:px-6 lg:py-6 lg:pt-6">
         {children}
       </main>
     </div>
