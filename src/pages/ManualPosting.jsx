@@ -221,7 +221,6 @@ function ManualPosting() {
   const [youtubeTags, setYoutubeTags] = useState("");
 
   const fileInputRef = useRef(null);
-  const messageRef = useRef(null);
 
   const selectedCompany = useMemo(
     () => companies.find((company) => company._id === selectedCompanyId) || null,
@@ -284,13 +283,15 @@ function ManualPosting() {
     };
   }, [filePreviewUrl]);
 
-  // Always bring the status/error banner into view so progress updates
-  // during a long submit aren't missed while scrolled down the form.
+  // Lock page scroll while the status/loading modal is open so the
+  // backdrop reads as a true overlay instead of scrolling with the page.
   useEffect(() => {
-    if ((formError || statusMessage) && messageRef.current) {
-      messageRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [formError, statusMessage]);
+    const shouldLock = submitting || Boolean(formError || statusMessage);
+    document.body.style.overflow = shouldLock ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [submitting, formError, statusMessage]);
 
   function dismissMessage() {
     setFormError("");
@@ -581,14 +582,15 @@ function ManualPosting() {
   const previewKind = mediaType || "";
   const hasMessage = Boolean(formError || statusMessage);
   const messageTone = formError ? "error" : statusTone;
+  const showOverlay = submitting || hasMessage;
 
   return (
     <Sidebar>
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50">
+        <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
           {/* Hero */}
           <div className="mb-6 flex flex-col gap-5 rounded-3xl border border-gray-200 bg-white px-5 py-6 shadow-sm sm:px-6 sm:py-7 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-2xl">
+            <div className="min-w-0 max-w-2xl">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-600 ring-1 ring-indigo-100">
                 <i className="fa-solid fa-pen-to-square"></i>
                 Manual Posting Workflow
@@ -608,46 +610,11 @@ function ManualPosting() {
             </div>
           </div>
 
-          {/* Status / error banner — always visible near the top of the page */}
-          {hasMessage && (
-            <div
-              ref={messageRef}
-              className={`mb-6 flex items-start justify-between gap-3 rounded-2xl border px-4 py-3.5 text-sm shadow-sm ${
-                messageTone === "error"
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : messageTone === "success"
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : "border-blue-200 bg-blue-50 text-blue-700"
-              }`}
+          <div className="grid w-full max-w-full gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <form
+              onSubmit={handleSubmit}
+              className="min-w-0 space-y-6 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
             >
-              <div className="flex items-start gap-2.5">
-                <i
-                  className={`fa-solid mt-0.5 ${
-                    messageTone === "error"
-                      ? "fa-triangle-exclamation"
-                      : messageTone === "success"
-                        ? "fa-circle-check"
-                        : "fa-spinner fa-spin"
-                  }`}
-                ></i>
-                <div>
-                  <p className="font-medium">{formError || statusMessage}</p>
-                  {!formError && statusDetail && <p className="mt-1 text-xs leading-relaxed opacity-90">{statusDetail}</p>}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={dismissMessage}
-                aria-label="Dismiss message"
-                className="flex-shrink-0 text-current opacity-60 transition-opacity hover:opacity-100"
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-          )}
-
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-            <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
               <SectionTitle
                 icon="fa-building"
                 title="1. Company and accounts"
@@ -655,7 +622,7 @@ function ManualPosting() {
               />
 
               <div className="grid gap-5 md:grid-cols-2">
-                <div>
+                <div className="min-w-0">
                   <label className="mb-2 block text-sm font-semibold text-gray-800">Company</label>
                   <div className="relative">
                     <i className="fa-solid fa-building absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
@@ -677,7 +644,7 @@ function ManualPosting() {
                   {!companiesLoading && companiesError && <InlineError text={companiesError} />}
                 </div>
 
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <div className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Auto-filled from DB</p>
                   <div className="mt-2 space-y-2 text-sm text-gray-700">
                     <KeyValue label="Company" value={selectedCompany?.companyName || "Not selected"} />
@@ -687,7 +654,7 @@ function ManualPosting() {
                 </div>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <SectionTitle
                     icon="fa-share-nodes"
@@ -723,7 +690,7 @@ function ManualPosting() {
                 )}
 
                 {visibleAccounts.length > 0 && (
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {visibleAccounts.map((account) => {
                       const meta = getPlatformMeta(account.platform);
                       const selected = selectedAccountIds.includes(account._id);
@@ -733,25 +700,25 @@ function ManualPosting() {
                           key={account._id}
                           type="button"
                           onClick={() => toggleAccount(account._id)}
-                          className={`group rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+                          className={`group min-w-0 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
                             selected ? `border-transparent ring-2 ${meta.ring}` : "border-gray-200 bg-white hover:border-gray-300"
                           }`}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className={`flex h-11 w-11 items-center justify-center rounded-xl border ${meta.border} ${selected ? meta.ring : "bg-gray-50 text-gray-500"}`}>
+                          <div className="flex min-w-0 items-start justify-between gap-3">
+                            <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border ${meta.border} ${selected ? meta.ring : "bg-gray-50 text-gray-500"}`}>
                               <i className={`${meta.icon} text-lg`}></i>
                             </div>
-                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${selected ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600"}`}>
+                            <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${selected ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600"}`}>
                               {selected ? "Selected" : "Tap to select"}
                             </span>
                           </div>
 
-                          <div className="mt-3">
-                            <h3 className="text-sm font-semibold text-gray-900">{account.accountName}</h3>
+                          <div className="mt-3 min-w-0">
+                            <h3 className="truncate text-sm font-semibold text-gray-900">{account.accountName}</h3>
                             <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">{meta.label}</p>
                           </div>
 
-                          <div className="mt-3 space-y-1.5 text-xs text-gray-500">
+                          <div className="mt-3 min-w-0 space-y-1.5 text-xs text-gray-500">
                             <KeyValue label="Page ID" value={maskValue(account.pageId, 6)} compact />
                           </div>
                         </button>
@@ -761,14 +728,14 @@ function ManualPosting() {
                 )}
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <SectionTitle
                   icon="fa-photo-film"
                   title="3. Upload media"
                   description="Upload a new image or video file. Videos are compressed before upload when possible."
                 />
 
-                <div className="mt-5 rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                <div className="mt-5 min-w-0 rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-4">
                   <label className="mb-2 block text-sm font-semibold text-gray-800">Image or video</label>
                   <input
                     ref={fileInputRef}
@@ -778,7 +745,7 @@ function ManualPosting() {
                     className="block w-full cursor-pointer rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-700"
                   />
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <InfoCard label="Media type" value={previewKind ? previewKind.toUpperCase() : "Not selected"} />
                     <InfoCard label="File size" value={selectedFile ? formatFileSize(selectedFile.size) : "—"} />
                   </div>
@@ -790,7 +757,7 @@ function ManualPosting() {
                   )}
                 </div>
 
-                <div className="mt-5 rounded-3xl border border-gray-200 bg-white">
+                <div className="mt-5 min-w-0 rounded-3xl border border-gray-200 bg-white">
                   <div className="border-b border-gray-100 px-4 py-3 text-sm font-semibold text-gray-800">Selected media preview</div>
                   <div className="flex min-h-[240px] items-center justify-center bg-gray-50 p-4">
                     {!previewUrl && (
@@ -812,7 +779,7 @@ function ManualPosting() {
               </div>
 
               {mediaType === "video" && (
-                <div>
+                <div className="min-w-0">
                   <SectionTitle
                     icon="fa-youtube"
                     title={`${youtubeStepNumber}. YouTube selection`}
@@ -820,7 +787,7 @@ function ManualPosting() {
                   />
 
                   {visibleAccounts.some((account) => account.platform === "youtube") ? (
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {visibleAccounts
                         .filter((account) => account.platform === "youtube")
                         .map((account) => {
@@ -832,20 +799,20 @@ function ManualPosting() {
                               key={account._id}
                               type="button"
                               onClick={() => toggleAccount(account._id)}
-                              className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+                              className={`min-w-0 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
                                 selected ? `border-transparent ring-2 ${meta.ring}` : "border-gray-200 bg-white"
                               }`}
                             >
-                              <div className="flex items-center gap-3">
-                                <div className={`flex h-11 w-11 items-center justify-center rounded-xl border ${meta.border} ${selected ? meta.ring : "bg-gray-50 text-gray-500"}`}>
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border ${meta.border} ${selected ? meta.ring : "bg-gray-50 text-gray-500"}`}>
                                   <i className={`${meta.icon} text-lg`}></i>
                                 </div>
-                                <div>
-                                  <h3 className="text-sm font-semibold text-gray-900">{account.accountName}</h3>
+                                <div className="min-w-0">
+                                  <h3 className="truncate text-sm font-semibold text-gray-900">{account.accountName}</h3>
                                   <p className="text-xs text-gray-500">{meta.label}</p>
                                 </div>
                               </div>
-                              <div className="mt-3 text-xs text-gray-500">
+                              <div className="mt-3 min-w-0 text-xs text-gray-500">
                                 <KeyValue label="Page ID" value={maskValue(account.pageId, 6)} compact />
                                 <KeyValue
                                   label="Token expiry"
@@ -864,13 +831,13 @@ function ManualPosting() {
                   )}
 
                   {hasYoutubeSelection && (
-                    <div className="mt-4 space-y-4 rounded-2xl border border-red-100 bg-red-50/40 p-4">
+                    <div className="mt-4 min-w-0 space-y-4 rounded-2xl border border-red-100 bg-red-50/40 p-4">
                       <p className="flex items-center gap-2 text-sm font-semibold text-red-700">
                         <i className="fa-brands fa-youtube"></i>
                         YouTube video details
                       </p>
 
-                      <div>
+                      <div className="min-w-0">
                         <label className="mb-1.5 block text-sm font-medium text-gray-700">
                           Video Title <span className="text-red-500">*</span>
                         </label>
@@ -886,8 +853,8 @@ function ManualPosting() {
                         </p>
                       </div>
 
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="min-w-0">
                           <label className="mb-1.5 block text-sm font-medium text-gray-700">Privacy</label>
                           <select
                             value={youtubePrivacy}
@@ -899,7 +866,7 @@ function ManualPosting() {
                             <option value="private">Private</option>
                           </select>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <label className="mb-1.5 block text-sm font-medium text-gray-700">Video Tags</label>
                           <input
                             type="text"
@@ -916,7 +883,7 @@ function ManualPosting() {
                 </div>
               )}
 
-              <div>
+              <div className="min-w-0">
                 <SectionTitle
                   icon="fa-comment-dots"
                   title={`${captionStepNumber}. Caption`}
@@ -937,8 +904,8 @@ function ManualPosting() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-3 rounded-2xl bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-                <div className="text-sm text-gray-500">
+              <div className="flex min-w-0 flex-col gap-3 rounded-2xl bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div className="min-w-0 truncate text-sm text-gray-500">
                   <span className="font-semibold text-gray-700">Selected accounts:</span>{" "}
                   {selectedAccounts.map((account) => getPlatformMeta(account.platform).label).join(", ") || "None"}
                 </div>
@@ -972,8 +939,8 @@ function ManualPosting() {
               </div>
             </form>
 
-            <aside className="space-y-6">
-              <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+            <aside className="min-w-0 space-y-6">
+              <div className="min-w-0 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
                 <SectionTitle
                   icon="fa-list-check"
                   title="Live summary"
@@ -990,7 +957,7 @@ function ManualPosting() {
                   )}
                 </div>
 
-                <div className="mt-5 rounded-2xl bg-gray-50 p-4 text-sm text-gray-700">
+                <div className="mt-5 min-w-0 rounded-2xl bg-gray-50 p-4 text-sm text-gray-700">
                   <p className="font-semibold text-gray-900">Posting setup</p>
                   <div className="mt-2 space-y-2">
                     <KeyValue label="Selected file" value={selectedFile?.name || "None"} />
@@ -1001,7 +968,7 @@ function ManualPosting() {
               </div>
 
               {mediaType === "video" && (
-                <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm sm:p-6">
+                <div className="min-w-0 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm sm:p-6">
                   <p className="font-semibold">Video processing note</p>
                   <p className="mt-2 leading-relaxed text-amber-900/90">
                     Instagram video publishing can take time. This depends on video duration, file size, Meta server load, and resolution. Small images usually take 1–5 seconds, 10-second MP4 files often take 10–30 seconds, 30–60 second reels can take 30–90 seconds, and large videos can take 1–3 minutes. So 70 seconds is completely normal.
@@ -1022,14 +989,58 @@ function ManualPosting() {
           </div>
         </div>
       </div>
+
+      {/* Centered status/loading modal — dark blurred backdrop */}
+      {showOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
+            <div
+              className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${
+                messageTone === "error"
+                  ? "bg-red-50 text-red-600"
+                  : messageTone === "success"
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "bg-indigo-50 text-indigo-600"
+              }`}
+            >
+              <i
+                className={`fa-solid text-xl ${
+                  messageTone === "error"
+                    ? "fa-triangle-exclamation"
+                    : messageTone === "success"
+                      ? "fa-circle-check"
+                      : "fa-spinner fa-spin"
+                }`}
+              ></i>
+            </div>
+
+            <p className="mt-4 text-sm font-semibold text-gray-900">
+              {formError || statusMessage || "Working..."}
+            </p>
+            {!formError && statusDetail && (
+              <p className="mt-2 text-xs leading-relaxed text-gray-500">{statusDetail}</p>
+            )}
+
+            {!submitting && (
+              <button
+                type="button"
+                onClick={dismissMessage}
+                className="mt-5 w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                {messageTone === "error" ? "Close" : "Done"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </Sidebar>
   );
 }
 
 function SectionTitle({ icon, title, description }) {
   return (
-    <div className="mb-4">
-      <div className="flex items-start gap-3">
+    <div className="mb-4 min-w-0">
+      <div className="flex min-w-0 items-start gap-3">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
           <i className={`fa-solid ${icon}`}></i>
         </div>
@@ -1044,17 +1055,17 @@ function SectionTitle({ icon, title, description }) {
 
 function StatPill({ label, value }) {
   return (
-    <div className="rounded-2xl bg-gray-50 px-4 py-3 ring-1 ring-gray-100">
-      <div className="text-[11px] uppercase tracking-wide text-gray-500">{label}</div>
-      <div className="mt-1 text-base font-semibold text-gray-900">{value}</div>
+    <div className="min-w-0 rounded-2xl bg-gray-50 px-4 py-3 ring-1 ring-gray-100">
+      <div className="truncate text-[11px] uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="mt-1 truncate text-base font-semibold text-gray-900">{value}</div>
     </div>
   );
 }
 
 function KeyValue({ label, value, compact = false }) {
   return (
-    <div className={`flex items-center justify-between gap-3 ${compact ? "text-xs" : "text-sm"}`}>
-      <span className="text-gray-500">{label}</span>
+    <div className={`flex min-w-0 items-center justify-between gap-3 ${compact ? "text-xs" : "text-sm"}`}>
+      <span className="flex-shrink-0 text-gray-500">{label}</span>
       <span className="max-w-[65%] truncate font-medium text-gray-800">{value}</span>
     </div>
   );
@@ -1062,9 +1073,9 @@ function KeyValue({ label, value, compact = false }) {
 
 function InfoCard({ label, value }) {
   return (
-    <div className="rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-100">
-      <div className="text-xs uppercase tracking-wide text-gray-400">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-gray-900">{value}</div>
+    <div className="min-w-0 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-100">
+      <div className="truncate text-xs uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="mt-1 truncate text-sm font-semibold text-gray-900">{value}</div>
     </div>
   );
 }
