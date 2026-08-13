@@ -6,7 +6,8 @@ import api from "../api/axios";
 
 const COMPANY_TYPES = [
   "Software", "Education", "Healthcare", "E-Commerce",
-  "Travel", "NGO", "Marketing", "Finance", "Real Estate", "Other",
+  "Travel", "NGO", "Marketing", "Finance", "Real Estate",
+  "Food_Beverage", "Entertainment", "Other",
 ];
 
 const TIMEZONES = [
@@ -18,7 +19,7 @@ const TYPE_ICONS = {
   Software: "fa-code", Education: "fa-graduation-cap", Healthcare: "fa-heart-pulse",
   "E-Commerce": "fa-cart-shopping", Travel: "fa-plane", NGO: "fa-hands-holding-circle",
   Marketing: "fa-bullhorn", Finance: "fa-chart-line", "Real Estate": "fa-building",
-  Other: "fa-circle-question",
+  Food_Beverage: "fa-utensils", Entertainment: "fa-film", Other: "fa-circle-question",
 };
 
 const initialState = {
