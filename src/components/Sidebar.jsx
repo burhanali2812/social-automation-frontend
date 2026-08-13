@@ -181,7 +181,7 @@ function Sidebar({ children }) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile top bar */}
-      <header className="fixed inset-x-0 top-0 z-[1045] mx-4 mt-2.5 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-[1045] mx-4 mt-2.5 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-2 py-3 shadow-sm lg:hidden">
         <div className="flex flex-shrink-0 items-center">
           <BrandMark size="h-9 w-9" textSize="text-sm" />
         </div>
@@ -245,7 +245,7 @@ function Sidebar({ children }) {
           isOpen ? "translate-y-0" : "-translate-y-full"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3.5">
+        <div className="flex items-center justify-between border-b border-gray-100 px-2 py-3.5">
           <h2 className="text-sm font-semibold text-gray-900">Menu</h2>
           <button
             type="button"
@@ -258,7 +258,7 @@ function Sidebar({ children }) {
         </div>
 
         {userEmail && (
-          <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-3">
+          <div className="flex items-center gap-3 border-b border-gray-100 px-2 py-3">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gray-900 text-sm font-semibold text-white">
               {userInitial}
             </div>
@@ -285,7 +285,7 @@ function Sidebar({ children }) {
 
       {isOpen && <div onClick={closeMenu} className="fixed inset-0 z-[1048] bg-black/45 lg:hidden" />}
 
-      <main className="min-h-screen  py-5 pt-[100px] lg:ml-[270px] lg:px-6 lg:py-6 lg:pt-6">
+      <main className="min-h-screen px-2 py-5 pt-[100px] lg:ml-[270px] lg:px-6 lg:py-6 lg:pt-6">
         {children}
       </main>
     </div>

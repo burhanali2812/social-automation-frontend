@@ -586,8 +586,7 @@ function ManualPosting() {
 
   return (
     <Sidebar>
-      <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50">
-        <div className="mx-auto w-full max-w-7xl px-2 py-3 sm:px-6 sm:py-6 lg:px-8">
+<div className="min-h-screen mt-4 sm:mt-0 w-full max-w-full overflow-x-hidden bg-gray-50">        <div className="mx-auto w-full max-w-7xl px-2 py-3 sm:px-6 sm:py-6 lg:px-8">
           {/* Hero */}
           <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white px-3 py-4 shadow-sm sm:mb-6 sm:gap-5 sm:rounded-3xl sm:px-6 sm:py-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0 max-w-2xl">
