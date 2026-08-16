@@ -6,7 +6,7 @@ const PLATFORMS = [
   { id: "facebook", name: "Facebook", icon: "fa-brands fa-facebook", color: "#1877F2" },
   { id: "instagram", name: "Instagram", icon: "fa-brands fa-instagram", color: "#E1306C" },
   { id: "linkedin", name: "LinkedIn", icon: "fa-brands fa-linkedin", color: "#0A66C2" },
-  { id: "twitter", name: "X (Twitter)", icon: "fa-brands fa-x-twitter", color: "#0F1419" },
+  { id: "tiktok", name: "TikTok", icon: "fa-brands fa-tiktok", color: "#000000" },
   { id: "youtube", name: "YouTube", icon: "fa-brands fa-youtube", color: "#FF0000" },
 ];
 

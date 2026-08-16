@@ -3,7 +3,7 @@ import axios from "axios";
 //https://social-automation-backend.vercel.app/api
 //http://localhost:5000/api
 const api = axios.create({
-  baseURL: "https://social-automation-backend.vercel.app/api",
+  baseURL: "http://localhost:5000/api",
 });
 
 api.interceptors.request.use((config) => {
