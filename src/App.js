@@ -11,10 +11,11 @@ import ShowAllMedia from './pages/ShowAllMedia';
 import ManualPosting from './pages/ManualPosting';
 import PrivacyPolicies from './pages/PrivacyPolicies';
 import TermsAndConditions from './pages/TermsAndConditions';
+import LandingPage from './pages/LandingPage';
 function App() {
   return (
     <Routes>
-    <Route path="/" element={<Login />} />
+    <Route path="/login" element={<Login />} />
     <Route path="/dashboard" element={<Dashboard />} />
     <Route path="/companies/add" element={<Add_Company />} />
     <Route path="/companies" element={<Companies />} />
@@ -22,8 +23,9 @@ function App() {
     <Route path="/manual-posting" element={<ManualPosting />} />
     <Route path="/media/upload" element={<UploadMedia />} />
     <Route path="/media" element={<ShowAllMedia />} />
-    <Route path='/privacy-policies' element={<PrivacyPolicies />} />
-    <Route path='/terms-and-conditions' element={<TermsAndConditions />} />
+    <Route path='/privacy' element={<PrivacyPolicies />} />
+    <Route path='/terms' element={<TermsAndConditions />} />
+    <Route path='/' element={<LandingPage />} />
 
     </Routes>
   );

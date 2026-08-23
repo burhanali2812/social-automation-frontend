@@ -27,13 +27,20 @@ const PLATFORM_META = {
     ring: "ring-red-100 bg-red-50 text-red-700",
     border: "border-red-100",
   },
+  tiktok: {
+    label: "TikTok",
+    icon: "fa-brands fa-tiktok",
+    ring: "ring-slate-200 bg-slate-50 text-slate-800",
+    border: "border-slate-200",
+  },
 };
 
 // Facebook/Instagram/LinkedIn share the same generic { accessToken/caption
 // + imageUrl|videoUrl } shape (LinkedIn just doesn't need an account id —
-// it resolves the author from the access token itself). YouTube is handled
-// separately below since its upload + token-refresh routes take a
-// completely different payload.
+// it resolves the author from the access token itself). YouTube and TikTok
+// are handled separately below since their routes take completely
+// different payloads (TikTok in particular looks the account up
+// server-side via companyId, so no accessToken is sent from the client).
 const POST_ROUTE_MAP = {
   facebook: {
     image: "/social-accounts/facebook/post-image",
@@ -58,8 +65,15 @@ const YOUTUBE_REFRESH_ROUTE = "/social-accounts/youtube/refresh-token";
 // rather than waiting for the upload call to fail with an expired token.
 const YOUTUBE_TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
+// TikTok's post-init routes look the account up server-side via companyId,
+// so no accessToken needs to be sent from the client. Photo posts take an
+// array of image URLs; video posts take a single videoUrl.
+// NOTE: adjust these to whatever prefix your TikTok router is mounted on.
+const TIKTOK_POST_PHOTO_ROUTE = "/social-tiktok/post-photo";
+const TIKTOK_POST_VIDEO_ROUTE = "/social-tiktok/post-video";
+
 function isPlatformSupported(platform) {
-  return Boolean(POST_ROUTE_MAP[platform]) || platform === "youtube";
+  return Boolean(POST_ROUTE_MAP[platform]) || platform === "youtube" || platform === "tiktok";
 }
 
 function getPlatformMeta(platform) {
@@ -220,6 +234,15 @@ function ManualPosting() {
   const [youtubePrivacy, setYoutubePrivacy] = useState("public");
   const [youtubeTags, setYoutubeTags] = useState("");
 
+  // TikTok-specific fields — post-init needs a title separate from the
+  // caption (used as description for photo posts), plus a privacy level.
+  // disableComment/Duet/Stitch only apply to video posts.
+  const [tiktokTitle, setTiktokTitle] = useState("");
+  const [tiktokPrivacy, setTiktokPrivacy] = useState("PUBLIC_TO_EVERYONE");
+  const [tiktokDisableComment, setTiktokDisableComment] = useState(false);
+  const [tiktokDisableDuet, setTiktokDisableDuet] = useState(false);
+  const [tiktokDisableStitch, setTiktokDisableStitch] = useState(false);
+
   const fileInputRef = useRef(null);
 
   const selectedCompany = useMemo(
@@ -240,10 +263,15 @@ function ManualPosting() {
   );
   const hasYoutubeSelection = selectedAccounts.some((account) => account.platform === "youtube");
   const hasLinkedinSelection = selectedAccounts.some((account) => account.platform === "linkedin");
+  const hasTiktokSelection = selectedAccounts.some((account) => account.platform === "tiktok");
 
-  // Step numbers stay correct whether or not the YouTube section is showing.
-  const youtubeStepNumber = 4;
-  const captionStepNumber = mediaType === "video" ? 5 : 4;
+  // Step numbers stay correct regardless of which optional sections
+  // (TikTok details, YouTube details) are currently showing.
+  const showTiktokDetails = hasTiktokSelection;
+  const showYoutubeDetails = mediaType === "video" && hasYoutubeSelection;
+  const tiktokStepNumber = showTiktokDetails ? 4 : null;
+  const youtubeStepNumber = showYoutubeDetails ? (showTiktokDetails ? 5 : 4) : null;
+  const captionStepNumber = 3 + (showTiktokDetails ? 1 : 0) + (showYoutubeDetails ? 1 : 0) + 1;
 
   useEffect(() => {
     fetchCompanies();
@@ -266,6 +294,11 @@ function ManualPosting() {
     setYoutubeTitle("");
     setYoutubePrivacy("public");
     setYoutubeTags("");
+    setTiktokTitle("");
+    setTiktokPrivacy("PUBLIC_TO_EVERYONE");
+    setTiktokDisableComment(false);
+    setTiktokDisableDuet(false);
+    setTiktokDisableStitch(false);
     setFormError("");
     setStatusMessage("");
     setStatusDetail("");
@@ -366,6 +399,11 @@ function ManualPosting() {
     setYoutubeTitle("");
     setYoutubePrivacy("public");
     setYoutubeTags("");
+    setTiktokTitle("");
+    setTiktokPrivacy("PUBLIC_TO_EVERYONE");
+    setTiktokDisableComment(false);
+    setTiktokDisableDuet(false);
+    setTiktokDisableStitch(false);
     setFormError("");
     setStatusMessage("");
     setStatusDetail("");
@@ -411,6 +449,34 @@ function ManualPosting() {
     });
   }
 
+  /**
+   * Publishes the uploaded media to TikTok. The backend resolves the
+   * TikTok account (and refreshes its token if needed) from companyId,
+   * so no accessToken is sent from the client. Video and photo posts
+   * hit different init routes with different payload shapes.
+   */
+  async function postToTiktok(mediaSource) {
+    if (mediaSource.mediaType === "video") {
+      await api.post(TIKTOK_POST_VIDEO_ROUTE, {
+        companyId: selectedCompanyId,
+        videoUrl: mediaSource.mediaUrl,
+        title: tiktokTitle,
+        privacyLevel: tiktokPrivacy,
+        disableComment: tiktokDisableComment,
+        disableDuet: tiktokDisableDuet,
+        disableStitch: tiktokDisableStitch,
+      });
+    } else {
+      await api.post(TIKTOK_POST_PHOTO_ROUTE, {
+        companyId: selectedCompanyId,
+        imageUrls: [mediaSource.mediaUrl],
+        title: tiktokTitle,
+        description: caption,
+        privacyLevel: tiktokPrivacy,
+      });
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -431,6 +497,11 @@ function ManualPosting() {
 
     if (hasYoutubeSelection && !youtubeTitle.trim()) {
       setFormError("Add a YouTube title for this video.");
+      return;
+    }
+
+    if (hasTiktokSelection && !tiktokTitle.trim()) {
+      setFormError("Add a TikTok title for this post.");
       return;
     }
 
@@ -458,6 +529,7 @@ function ManualPosting() {
       const instagramSelected = selectedAccounts.some((account) => account.platform === "instagram");
       const youtubeSelected = selectedAccounts.some((account) => account.platform === "youtube");
       const linkedinSelected = selectedAccounts.some((account) => account.platform === "linkedin");
+      const tiktokSelected = selectedAccounts.some((account) => account.platform === "tiktok");
 
       setStatusMessage(
         currentMediaType === "video" ? "Compressing video before upload..." : "Preparing image for upload..."
@@ -518,13 +590,21 @@ function ManualPosting() {
               ? "YouTube uploads run through Google's servers and can take a minute or more depending on video length."
               : linkedinSelected && mediaSource.mediaType === "video"
                 ? "LinkedIn waits for the video to finish processing before publishing — this can take up to a minute."
-                : "Publishing is running now."
+                : tiktokSelected
+                  ? "TikTok processes the post asynchronously once it's initialized — this is normal."
+                  : "Publishing is running now."
       );
 
       let postedCount = 0;
       for (const account of supportedAccounts) {
         if (account.platform === "youtube") {
           await postToYoutube(account, mediaSource);
+          postedCount += 1;
+          continue;
+        }
+
+        if (account.platform === "tiktok") {
+          await postToTiktok(mediaSource);
           postedCount += 1;
           continue;
         }
@@ -567,7 +647,9 @@ function ManualPosting() {
           ? "Processing time depends on video duration, file size, Meta server load, and resolution. 70 seconds is completely normal."
           : mediaSource.mediaType === "video" && youtubeSelected
             ? "YouTube shows the video as 'processing' for a short while after upload — that's expected."
-            : ""
+            : tiktokSelected
+              ? "Check the TikTok app if the post doesn't appear immediately — it may still be processing."
+              : ""
       );
     } catch (error) {
       setStatusTone("error");
@@ -777,7 +859,65 @@ function ManualPosting() {
                 </div>
               </div>
 
-              {mediaType === "video" && (
+              {showTiktokDetails && (
+                <div className="min-w-0">
+                  <SectionTitle
+                    icon="fa-tiktok"
+                    title={`${tiktokStepNumber}. TikTok details`}
+                    description="Shown because a TikTok account is selected. TikTok requires a title for every post."
+                  />
+
+                  <div className="min-w-0 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:space-y-4 sm:p-4">
+                    <div className="min-w-0">
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                        Video/Post Title <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={tiktokTitle}
+                        onChange={(event) => setTiktokTitle(event.target.value)}
+                        placeholder="e.g. New product drop"
+                        className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                      />
+                      <p className="mt-1 text-xs text-gray-400">
+                        Required by TikTok. For photo posts, the caption below is also sent as the description.
+                      </p>
+                    </div>
+
+                    <div className="min-w-0">
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700">Privacy</label>
+                      <select
+                        value={tiktokPrivacy}
+                        onChange={(event) => setTiktokPrivacy(event.target.value)}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                      >
+                        <option value="PUBLIC_TO_EVERYONE">Public</option>
+                        <option value="MUTUAL_FOLLOW_FRIENDS">Friends</option>
+                        <option value="SELF_ONLY">Only me</option>
+                      </select>
+                    </div>
+
+                    {mediaType === "video" && (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                          <input type="checkbox" checked={tiktokDisableComment} onChange={(e) => setTiktokDisableComment(e.target.checked)} />
+                          Disable comments
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                          <input type="checkbox" checked={tiktokDisableDuet} onChange={(e) => setTiktokDisableDuet(e.target.checked)} />
+                          Disable duet
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                          <input type="checkbox" checked={tiktokDisableStitch} onChange={(e) => setTiktokDisableStitch(e.target.checked)} />
+                          Disable stitch
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {showYoutubeDetails && (
                 <div className="min-w-0">
                   <SectionTitle
                     icon="fa-youtube"
@@ -896,9 +1036,9 @@ function ManualPosting() {
                   placeholder="Write your caption, hashtags, or posting notes..."
                   className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 sm:px-4 sm:py-3"
                 />
-                {hasYoutubeSelection && (
+                {(hasYoutubeSelection || hasTiktokSelection) && (
                   <p className="mt-1.5 text-xs text-gray-400">
-                    This same text is also used as the YouTube video description.
+                    This same text is also used as the description for YouTube and TikTok photo posts.
                   </p>
                 )}
               </div>
@@ -951,8 +1091,12 @@ function ManualPosting() {
                   <KeyValue label="Accounts" value={selectedAccounts.length ? `${selectedAccounts.length} selected` : "None"} />
                   <KeyValue label="Media" value={previewKind ? previewKind.toUpperCase() : "Not selected"} />
                   <KeyValue label="YouTube" value={mediaType === "video" ? (hasYoutubeSelection ? "Included" : "Optional") : "Hidden"} />
+                  <KeyValue label="TikTok" value={hasTiktokSelection ? "Included" : "Not selected"} />
                   {hasYoutubeSelection && (
                     <KeyValue label="YouTube title" value={youtubeTitle || "Not set"} />
+                  )}
+                  {hasTiktokSelection && (
+                    <KeyValue label="TikTok title" value={tiktokTitle || "Not set"} />
                   )}
                 </div>
 
@@ -980,6 +1124,11 @@ function ManualPosting() {
                   {hasLinkedinSelection && (
                     <p className="mt-3 leading-relaxed text-amber-900/90">
                       For LinkedIn, the server waits for the video to finish processing before creating the post, so the publish step can take up to about a minute by itself.
+                    </p>
+                  )}
+                  {hasTiktokSelection && (
+                    <p className="mt-3 leading-relaxed text-amber-900/90">
+                      For TikTok, the access token is refreshed server-side automatically if it's close to expiring, and the post is processed asynchronously after this call returns.
                     </p>
                   )}
                 </div>

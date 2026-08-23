@@ -74,8 +74,14 @@ function SocialMediaConnection() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState("select-platform"); // 'select-platform' | 'enter-details'
   const [platformDraft, setPlatformDraft] = useState(null);
-  const [form, setForm] = useState({ accountName: "", pageId: "", accessToken: "", tokenExpiry: "" });
-  const [formErrors, setFormErrors] = useState({});
+const [form, setForm] = useState({
+  accountName: "",
+  pageId: "",
+  accessToken: "",
+  tokenExpiry: "",
+  refreshToken: "",
+  refreshTokenExpiry: "",
+});  const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
   const [disconnectTarget, setDisconnectTarget] = useState(null); // account object | null
@@ -170,38 +176,42 @@ function SocialMediaConnection() {
     setFormErrors((prev) => ({ ...prev, [field]: "" }));
   }
 
-  function validateForm() {
-    const errors = {};
-    if (!form.accountName.trim()) errors.accountName = "Account name is required.";
-    if (!form.pageId.trim()) errors.pageId = "Page ID is required.";
-    if (!form.accessToken.trim()) errors.accessToken = "Access token is required.";
-    if (!form.tokenExpiry) errors.tokenExpiry = "Token expiry date is required.";
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  }
+function validateForm() {
+  const errors = {};
+  if (!form.accountName.trim()) errors.accountName = "Account name is required.";
+  if (!form.pageId.trim()) errors.pageId = "Page ID is required.";
+  if (!form.accessToken.trim()) errors.accessToken = "Access token is required.";
+  // tokenExpiry, refreshToken, refreshTokenExpiry are optional per schema
+  setFormErrors(errors);
+  return Object.keys(errors).length === 0;
+}
 
-  async function handleConnectSubmit(e) {
-    e.preventDefault();
-    if (!validateForm()) return;
+async function handleConnectSubmit(e) {
+  e.preventDefault();
+  if (!validateForm()) return;
 
-    setSaving(true);
-    try {
-      await api.post("/social-accounts/addSocialAccount", {
-        companyId: selectedCompanyId,
-        platform: platformDraft.id,
-        accountName: form.accountName.trim(),
-        pageId: form.pageId.trim(),
-        accessToken: form.accessToken.trim(),
-        tokenExpiry: form.tokenExpiry,
-      });
-      closeModal();
-      fetchAccounts(selectedCompanyId);
-    } catch (err) {
-      setFormErrors({ submit: err.response?.data?.message || "Failed to connect account." });
-    } finally {
-      setSaving(false);
-    }
+  setSaving(true);
+  try {
+    const payload = {
+      companyId: selectedCompanyId,
+      platform: platformDraft.id,
+      accountName: form.accountName.trim(),
+      pageId: form.pageId.trim(),
+      accessToken: form.accessToken.trim(),
+    };
+    if (form.tokenExpiry) payload.tokenExpiry = form.tokenExpiry;
+    if (form.refreshToken.trim()) payload.refreshToken = form.refreshToken.trim();
+    if (form.refreshTokenExpiry) payload.refreshTokenExpiry = form.refreshTokenExpiry;
+
+    await api.post("/social-accounts/addSocialAccount", payload);
+    closeModal();
+    fetchAccounts(selectedCompanyId);
+  } catch (err) {
+    setFormErrors({ submit: err.response?.data?.message || "Failed to connect account." });
+  } finally {
+    setSaving(false);
   }
+}
 
   async function handleDisconnectConfirm() {
     if (!disconnectTarget) return;
@@ -614,159 +624,196 @@ function SocialMediaConnection() {
         </div>
 
         {/* Connect account modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true">
-            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={closeModal} />
+     {isModalOpen && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={closeModal} />
 
-            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-slate-900">
-                  {modalStep === "select-platform" ? "Choose a Platform" : `Connect ${platformDraft?.name}`}
-                </h2>
-                <button type="button" onClick={closeModal} className="text-slate-400 hover:text-slate-600">
-                  <i className="fa-solid fa-xmark" />
-                </button>
-              </div>
+    <div className="relative flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl">
+      {/* Fixed header */}
+      <div className="flex items-center justify-between p-6 pb-0">
+        <h2 className="text-base font-semibold text-slate-900">
+          {modalStep === "select-platform" ? "Choose a Platform" : `Connect ${platformDraft?.name}`}
+        </h2>
+        <button type="button" onClick={closeModal} className="text-slate-400 hover:text-slate-600">
+          <i className="fa-solid fa-xmark" />
+        </button>
+      </div>
 
-              {/* Mini company card — which company this account will be linked to */}
-              {selectedCompany && (
-                <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  {selectedCompany.companyLogo ? (
-                    <img
-                      src={selectedCompany.companyLogo}
-                      alt=""
-                      className="h-10 w-10 flex-shrink-0 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white text-sm font-semibold text-slate-600 ring-1 ring-slate-200">
-                      {selectedCompany.companyName?.charAt(0)}
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">{selectedCompany.companyName}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
-                      {selectedCompany.companyType && (
-                        <span className="rounded-full bg-white px-2 py-0.5 font-medium text-slate-500 ring-1 ring-slate-200">
-                          {selectedCompany.companyType}
-                        </span>
-                      )}
-                      {selectedCompany.email && (
-                        <span className="flex items-center gap-1 truncate">
-                          <i className="fa-solid fa-envelope text-[10px] text-slate-400" />
-                          {selectedCompany.email}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+      {/* Fixed company card — shown for both steps, stays pinned above the scroll area */}
+      {selectedCompany && (
+        <div className="mx-6 mt-4 flex flex-shrink-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          {selectedCompany.companyLogo ? (
+            <img
+              src={selectedCompany.companyLogo}
+              alt=""
+              className="h-10 w-10 flex-shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white text-sm font-semibold text-slate-600 ring-1 ring-slate-200">
+              {selectedCompany.companyName?.charAt(0)}
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900">{selectedCompany.companyName}</p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
+              {selectedCompany.companyType && (
+                <span className="rounded-full bg-white px-2 py-0.5 font-medium text-slate-500 ring-1 ring-slate-200">
+                  {selectedCompany.companyType}
+                </span>
               )}
-
-              {modalStep === "select-platform" ? (
-                <>
-                  <p className="mt-1 text-sm text-slate-500">Already-connected platforms are disabled below.</p>
-                  <div className="mt-5 grid grid-cols-3 gap-3 sm:grid-cols-5">
-                    {PLATFORMS.map((platform) => {
-                      const isConnected = connectedPlatformIds.includes(platform.id);
-                      return (
-                        <button
-                          key={platform.id}
-                          type="button"
-                          onClick={() => pickPlatform(platform)}
-                          disabled={isConnected}
-                          className={`relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border p-2 transition-colors ${
-                            isConnected
-                              ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-50"
-                              : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/60"
-                          }`}
-                        >
-                          {isConnected && (
-                            <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white">
-                              <i className="fa-solid fa-check text-[10px]" />
-                            </span>
-                          )}
-                          <i className={`${platform.icon} text-xl`} style={{ color: isConnected ? "#94a3b8" : platform.color }} />
-                          <span className="text-center text-[11px] font-medium leading-tight text-slate-600">{platform.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <form onSubmit={handleConnectSubmit} className="mt-5 space-y-4">
-                  <div className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
-                    <i className={`${platformDraft.icon} text-lg`} style={{ color: platformDraft.color }} />
-                    <span className="text-sm font-medium text-slate-700">{platformDraft.name}</span>
-                    <button type="button" onClick={() => setModalStep("select-platform")} className="ml-auto text-xs font-medium text-indigo-600 hover:underline">
-                      Change
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Account Name</label>
-                    <input
-                      type="text"
-                      value={form.accountName}
-                      onChange={(e) => handleFormChange("accountName", e.target.value)}
-                      placeholder="e.g. Azytrosys Official"
-                      className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 ${formErrors.accountName ? "border-red-300 focus:ring-red-500" : "border-slate-300 focus:ring-indigo-500"}`}
-                    />
-                    {formErrors.accountName && <p className="mt-1 text-xs text-red-600">{formErrors.accountName}</p>}
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Page ID</label>
-                    <input
-                      type="text"
-                      value={form.pageId}
-                      onChange={(e) => handleFormChange("pageId", e.target.value)}
-                      placeholder="e.g. 1029384756123"
-                      className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 ${formErrors.pageId ? "border-red-300 focus:ring-red-500" : "border-slate-300 focus:ring-indigo-500"}`}
-                    />
-                    {formErrors.pageId && <p className="mt-1 text-xs text-red-600">{formErrors.pageId}</p>}
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Access Token</label>
-                    <input
-                      type="password"
-                      value={form.accessToken}
-                      onChange={(e) => handleFormChange("accessToken", e.target.value)}
-                      placeholder="Paste access token"
-                      className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 ${formErrors.accessToken ? "border-red-300 focus:ring-red-500" : "border-slate-300 focus:ring-indigo-500"}`}
-                    />
-                    {formErrors.accessToken && <p className="mt-1 text-xs text-red-600">{formErrors.accessToken}</p>}
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Token Expiry Date</label>
-                    <input
-                      type="date"
-                      value={form.tokenExpiry}
-                      onChange={(e) => handleFormChange("tokenExpiry", e.target.value)}
-                      className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 ${formErrors.tokenExpiry ? "border-red-300 focus:ring-red-500" : "border-slate-300 focus:ring-indigo-500"}`}
-                    />
-                    {formErrors.tokenExpiry && <p className="mt-1 text-xs text-red-600">{formErrors.tokenExpiry}</p>}
-                  </div>
-
-                  {formErrors.submit && <p className="text-xs text-red-600">{formErrors.submit}</p>}
-
-                  <div className="flex justify-end gap-3 pt-2">
-                    <button type="button" onClick={closeModal} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                    >
-                      {saving ? "Connecting..." : "Connect Account"}
-                    </button>
-                  </div>
-                </form>
+              {selectedCompany.email && (
+                <span className="flex items-center gap-1 truncate">
+                  <i className="fa-solid fa-envelope text-[10px] text-slate-400" />
+                  {selectedCompany.email}
+                </span>
               )}
             </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {modalStep === "select-platform" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <p className="text-sm text-slate-500">Already-connected platforms are disabled below.</p>
+          <div className="mt-5 grid grid-cols-3 gap-3 sm:grid-cols-5">
+            {PLATFORMS.map((platform) => {
+              const isConnected = connectedPlatformIds.includes(platform.id);
+              return (
+                <button
+                  key={platform.id}
+                  type="button"
+                  onClick={() => pickPlatform(platform)}
+                  disabled={isConnected}
+                  className={`relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border p-2 transition-colors ${
+                    isConnected
+                      ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-50"
+                      : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/60"
+                  }`}
+                >
+                  {isConnected && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white">
+                      <i className="fa-solid fa-check text-[10px]" />
+                    </span>
+                  )}
+                  <i className={`${platform.icon} text-xl`} style={{ color: isConnected ? "#94a3b8" : platform.color }} />
+                  <span className="text-center text-[11px] font-medium leading-tight text-slate-600">{platform.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleConnectSubmit} className="flex min-h-0 flex-1 flex-col">
+          {/* Scrollable field area */}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
+            <div className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
+              <i className={`${platformDraft.icon} text-lg`} style={{ color: platformDraft.color }} />
+              <span className="text-sm font-medium text-slate-700">{platformDraft.name}</span>
+              <button type="button" onClick={() => setModalStep("select-platform")} className="ml-auto text-xs font-medium text-indigo-600 hover:underline">
+                Change
+              </button>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Account Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.accountName}
+                onChange={(e) => handleFormChange("accountName", e.target.value)}
+                placeholder="e.g. Azytrosys Official"
+                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 ${formErrors.accountName ? "border-red-300 focus:ring-red-500" : "border-slate-300 focus:ring-indigo-500"}`}
+              />
+              {formErrors.accountName && <p className="mt-1 text-xs text-red-600">{formErrors.accountName}</p>}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Page ID <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.pageId}
+                onChange={(e) => handleFormChange("pageId", e.target.value)}
+                placeholder="e.g. 1029384756123"
+                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 ${formErrors.pageId ? "border-red-300 focus:ring-red-500" : "border-slate-300 focus:ring-indigo-500"}`}
+              />
+              {formErrors.pageId && <p className="mt-1 text-xs text-red-600">{formErrors.pageId}</p>}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Access Token <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                value={form.accessToken}
+                onChange={(e) => handleFormChange("accessToken", e.target.value)}
+                placeholder="Paste access token"
+                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 ${formErrors.accessToken ? "border-red-300 focus:ring-red-500" : "border-slate-300 focus:ring-indigo-500"}`}
+              />
+              {formErrors.accessToken && <p className="mt-1 text-xs text-red-600">{formErrors.accessToken}</p>}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Refresh Token <span className="text-slate-400 font-normal">(if any)</span>
+              </label>
+              <input
+                type="password"
+                value={form.refreshToken}
+                onChange={(e) => handleFormChange("refreshToken", e.target.value)}
+                placeholder="Paste refresh token"
+                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Token Expiry Date <span className="text-slate-400 font-normal">(if any)</span>
+              </label>
+              <input
+                type="date"
+                value={form.tokenExpiry}
+                onChange={(e) => handleFormChange("tokenExpiry", e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Refresh Token Expiry Date <span className="text-slate-400 font-normal">(if any)</span>
+              </label>
+              <input
+                type="date"
+                value={form.refreshTokenExpiry}
+                onChange={(e) => handleFormChange("refreshTokenExpiry", e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            {formErrors.submit && <p className="text-xs text-red-600">{formErrors.submit}</p>}
+          </div>
+
+          {/* Fixed footer */}
+          <div className="flex flex-shrink-0 justify-end gap-3 border-t border-slate-100 p-6 pt-4">
+            <button type="button" onClick={closeModal} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {saving ? "Connecting..." : "Connect Account"}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  </div>
+)}
 
         {/* Edit account modal */}
         {editTarget && (
